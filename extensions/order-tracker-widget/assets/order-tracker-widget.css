@@ -401,6 +401,111 @@
   overflow-wrap: anywhere;
 }
 
+.shiprocket-chat-tracking-details {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.shiprocket-chat-tracking-detail {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(31, 38, 48, 0.06);
+}
+
+.shiprocket-chat-tracking-detail-label {
+  display: block;
+  color: var(--shiprocket-muted);
+  font-size: 10px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.shiprocket-chat-tracking-detail-value {
+  display: block;
+  margin-top: 6px;
+  color: var(--shiprocket-text);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.shiprocket-chat-tracking-updates {
+  margin-top: 12px;
+}
+
+.shiprocket-chat-tracking-updates-title {
+  display: block;
+  color: var(--shiprocket-text);
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.shiprocket-chat-tracking-update-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shiprocket-chat-tracking-update-item {
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(31, 38, 48, 0.06);
+}
+
+.shiprocket-chat-tracking-update-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.shiprocket-chat-tracking-update-status {
+  color: var(--shiprocket-text);
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.shiprocket-chat-tracking-update-date {
+  color: var(--shiprocket-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.shiprocket-chat-tracking-update-location {
+  margin: 6px 0 0;
+  color: var(--shiprocket-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.shiprocket-chat-tracking-link {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 12px;
+  color: #aa4f2b;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.shiprocket-chat-tracking-link:hover {
+  text-decoration: underline;
+}
+
 .shiprocket-chat-suggestions {
   min-width: 0;
   padding: 0 16px;
@@ -569,5 +674,9 @@
 
   .shiprocket-chat-bubble {
     max-width: 92%;
+  }
+
+  .shiprocket-chat-tracking-details {
+    grid-template-columns: 1fr;
   }
 }

@@ -5,6 +5,7 @@ const logger = require('../utils/logger');
 const {
   buildReply,
   formatHumanDate,
+  formatHumanDateTime,
   normalizeLocation,
   normalizeStatus,
 } = require('../utils/trackFormatter');
@@ -70,28 +71,35 @@ function normalizeActivity(activity) {
     return null;
   }
 
+  const rawStatus = firstNonEmptyString([
+    activity.current_status,
+    activity.current_status_body,
+    activity.activity,
+    activity.status,
+    activity.shipment_status,
+    activity.event,
+  ]);
+  const rawLocation = firstNonEmptyString([
+    activity.location,
+    activity.scan_location,
+    activity.hub,
+    activity.city,
+  ]);
+  const rawDate = firstNonEmptyString([
+    activity.date,
+    activity.activity_date,
+    activity.created_at,
+    activity.updated_at,
+    activity.event_time,
+  ]);
+
   return {
-    status: firstNonEmptyString([
-      activity.current_status,
-      activity.current_status_body,
-      activity.activity,
-      activity.status,
-      activity.shipment_status,
-      activity.event,
-    ]),
-    location: firstNonEmptyString([
-      activity.location,
-      activity.scan_location,
-      activity.hub,
-      activity.city,
-    ]),
-    date: firstNonEmptyString([
-      activity.date,
-      activity.activity_date,
-      activity.created_at,
-      activity.updated_at,
-      activity.event_time,
-    ]),
+    status: rawStatus,
+    location: rawLocation,
+    date: rawDate,
+    normalized_status: normalizeStatus(rawStatus),
+    normalized_location: normalizeLocation(rawLocation),
+    formatted_date: formatHumanDateTime(rawDate),
   };
 }
 
@@ -157,6 +165,65 @@ function extractOrderId(payload) {
   ]);
 }
 
+function extractCourierName(payload) {
+  const root = extractTrackingRoot(payload);
+
+  return firstNonEmptyString([
+    root.courier_name,
+    root.courier_company_name,
+    root.shipment_courier,
+    root?.shipment_track?.[0]?.courier_name,
+    root?.shipments?.[0]?.courier_name,
+    payload?.courier_name,
+  ]);
+}
+
+function extractTrackingUrl(payload) {
+  const root = extractTrackingRoot(payload);
+
+  return firstNonEmptyString([
+    root.track_url,
+    root.tracking_url,
+    root.awb_track_url,
+    payload?.track_url,
+    payload?.tracking_url,
+  ]);
+}
+
+function buildRecentUpdates(activities) {
+  const seen = new Set();
+
+  return activities
+    .map((activity) => ({
+      status:
+        activity.normalized_status &&
+        !['na', 'n a', 'null', 'undefined'].includes(activity.normalized_status)
+          ? activity.normalized_status
+          : null,
+      location: activity.normalized_location || null,
+      date: activity.formatted_date || activity.date || null,
+    }))
+    .filter((activity) => {
+      if (!activity.status && !activity.location) {
+        return false;
+      }
+
+      if (!activity.location && !activity.date) {
+        return false;
+      }
+
+      const signature = `${activity.status || ''}|${activity.location || ''}|${activity.date || ''}`;
+
+      if (seen.has(signature)) {
+        return false;
+      }
+
+      seen.add(signature);
+      return true;
+    })
+    .slice(0, 4);
+}
+
 function extractTrackingSummary(payload, lookup = {}) {
   const root = extractTrackingRoot(payload);
   const activities = extractActivities(payload);
@@ -189,6 +256,24 @@ function extractTrackingSummary(payload, lookup = {}) {
   const status = normalizeStatus(rawStatus);
   const lastLocation = normalizeLocation(rawLocation);
   const expectedDelivery = formatHumanDate(rawExpectedDelivery);
+  const courierName = extractCourierName(payload);
+  const lastUpdateAt = formatHumanDateTime(
+    firstNonEmptyString([
+      latestActivity?.date,
+      root.updated_at,
+      root.current_timestamp,
+      payload?.updated_at,
+    ]),
+  );
+  const latestEvent = normalizeStatus(
+    firstNonEmptyString([
+      latestActivity?.status,
+      root.current_status_body,
+      root.status,
+    ]),
+  );
+  const trackUrl = extractTrackingUrl(payload);
+  const recentUpdates = buildRecentUpdates(activities);
   const hasEvidence = Boolean(rawStatus || rawLocation || rawExpectedDelivery || latestActivity);
 
   return {
@@ -199,10 +284,17 @@ function extractTrackingSummary(payload, lookup = {}) {
     status,
     last_location: lastLocation,
     expected_delivery: expectedDelivery,
+    courier_name: courierName,
+    latest_event: latestEvent,
+    last_update_at: lastUpdateAt,
+    track_url: trackUrl,
+    recent_updates: recentUpdates,
     reply: buildReply({
       status,
       lastLocation,
       expectedDelivery,
+      courierName,
+      lastUpdateAt,
     }),
   };
 }

@@ -219,6 +219,11 @@ async function handleTrackingConversation(message) {
         status: result.tracking.status,
         last_location: result.tracking.last_location,
         expected_delivery: result.tracking.expected_delivery,
+        courier_name: result.tracking.courier_name,
+        latest_event: result.tracking.latest_event,
+        last_update_at: result.tracking.last_update_at,
+        track_url: result.tracking.track_url,
+        recent_updates: result.tracking.recent_updates,
       },
     });
   } catch (error) {

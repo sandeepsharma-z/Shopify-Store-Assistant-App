@@ -51,7 +51,26 @@ function formatHumanDate(rawDate) {
   }).format(date);
 }
 
-function buildReply({ status, lastLocation, expectedDelivery }) {
+function formatHumanDateTime(rawDate) {
+  if (!rawDate) {
+    return null;
+  }
+
+  const date = new Date(rawDate);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(rawDate).trim();
+  }
+
+  return new Intl.DateTimeFormat('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function buildReply({ status, lastLocation, expectedDelivery, courierName, lastUpdateAt }) {
   let reply;
 
   if (status === 'delivered') {
@@ -68,8 +87,16 @@ function buildReply({ status, lastLocation, expectedDelivery }) {
     reply += ` Last update: ${lastLocation}.`;
   }
 
+  if (courierName) {
+    reply += ` Courier partner: ${courierName}.`;
+  }
+
   if (expectedDelivery) {
     reply += ` Expected delivery: ${expectedDelivery}.`;
+  }
+
+  if (lastUpdateAt) {
+    reply += ` Updated: ${lastUpdateAt}.`;
   }
 
   return reply;
@@ -78,6 +105,7 @@ function buildReply({ status, lastLocation, expectedDelivery }) {
 module.exports = {
   buildReply,
   formatHumanDate,
+  formatHumanDateTime,
   normalizeLocation,
   normalizeStatus,
 };

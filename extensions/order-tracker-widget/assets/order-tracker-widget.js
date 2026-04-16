@@ -143,6 +143,15 @@
     return message;
   }
 
+  function formatLabelText(value) {
+    if (!value) {
+      return '';
+    }
+
+    const text = String(value).trim();
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
   function renderTrackingCard(payload) {
     if (!payload || !payload.tracking) {
       return null;
@@ -170,24 +179,79 @@
 
     card.appendChild(top);
 
-    if (tracking.last_location) {
-      card.appendChild(
-        createElement(
-          'p',
-          'shiprocket-chat-tracking-line',
-          'Last location: ' + tracking.last_location,
-        ),
-      );
+    const details = createElement('div', 'shiprocket-chat-tracking-details');
+    const detailItems = [
+      ['Order ID', tracking.order_id],
+      ['Courier', tracking.courier_name],
+      ['Latest event', formatLabelText(tracking.latest_event)],
+      ['Updated', tracking.last_update_at],
+      ['Last location', tracking.last_location],
+      ['Expected delivery', tracking.expected_delivery],
+    ].filter(function hasValue(item) {
+      return Boolean(item[1]);
+    });
+
+    detailItems.forEach(function each(item) {
+      const detail = createElement('div', 'shiprocket-chat-tracking-detail');
+      const label = createElement('span', 'shiprocket-chat-tracking-detail-label', item[0]);
+      const value = createElement('strong', 'shiprocket-chat-tracking-detail-value', item[1]);
+
+      detail.appendChild(label);
+      detail.appendChild(value);
+      details.appendChild(detail);
+    });
+
+    if (details.childNodes.length) {
+      card.appendChild(details);
     }
 
-    if (tracking.expected_delivery) {
-      card.appendChild(
-        createElement(
+    if (Array.isArray(tracking.recent_updates) && tracking.recent_updates.length) {
+      const updatesBlock = createElement('div', 'shiprocket-chat-tracking-updates');
+      const updatesTitle = createElement('strong', 'shiprocket-chat-tracking-updates-title', 'Recent updates');
+      const updatesList = createElement('div', 'shiprocket-chat-tracking-update-list');
+
+      updatesBlock.appendChild(updatesTitle);
+
+      tracking.recent_updates.slice(0, 3).forEach(function each(update) {
+        const item = createElement('div', 'shiprocket-chat-tracking-update-item');
+        const itemTop = createElement('div', 'shiprocket-chat-tracking-update-top');
+        const itemStatus = createElement(
+          'strong',
+          'shiprocket-chat-tracking-update-status',
+          formatLabelText(update.status || 'Shipment update'),
+        );
+        const itemDate = createElement(
+          'span',
+          'shiprocket-chat-tracking-update-date',
+          update.date || '',
+        );
+        const itemLocation = createElement(
           'p',
-          'shiprocket-chat-tracking-line',
-          'Expected delivery: ' + tracking.expected_delivery,
-        ),
-      );
+          'shiprocket-chat-tracking-update-location',
+          update.location || 'Location not available',
+        );
+
+        itemTop.appendChild(itemStatus);
+
+        if (itemDate.textContent) {
+          itemTop.appendChild(itemDate);
+        }
+
+        item.appendChild(itemTop);
+        item.appendChild(itemLocation);
+        updatesList.appendChild(item);
+      });
+
+      updatesBlock.appendChild(updatesList);
+      card.appendChild(updatesBlock);
+    }
+
+    if (tracking.track_url) {
+      const link = createElement('a', 'shiprocket-chat-tracking-link', 'Open tracking page');
+      link.href = tracking.track_url;
+      link.target = '_blank';
+      link.rel = 'noreferrer noopener';
+      card.appendChild(link);
     }
 
     return card;
