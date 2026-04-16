@@ -1,0 +1,65 @@
+<div
+  id="shiprocket-order-tracker-{{ block.id }}"
+  class="shiprocket-order-tracker-root"
+  data-heading="{{ block.settings.heading | escape }}"
+  data-description="{{ block.settings.description | escape }}"
+  data-launcher-label="{{ block.settings.launcher_label | escape }}"
+  data-welcome-message="{{ block.settings.welcome_message | escape }}"
+  data-placeholder="{{ block.settings.placeholder | escape }}"
+  data-button-label="{{ block.settings.button_label | escape }}"
+  data-proxy-path="{{ block.settings.proxy_path | escape }}"
+  {{ block.shopify_attributes }}
+></div>
+
+{% schema %}
+{
+  "name": "Order Assistant Chatbot",
+  "target": "body",
+  "stylesheet": "order-tracker-widget.css",
+  "javascript": "order-tracker-widget.js",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Store assistant"
+    },
+    {
+      "type": "text",
+      "id": "description",
+      "label": "Description",
+      "default": "Ask about products, collections, price, stock availability, or enter AWB / order ID for tracking."
+    },
+    {
+      "type": "text",
+      "id": "launcher_label",
+      "label": "Launcher label",
+      "default": "Chat with us"
+    },
+    {
+      "type": "textarea",
+      "id": "welcome_message",
+      "label": "Welcome message",
+      "default": "Ask about products, collections, price, stock availability, or send your AWB / order ID for tracking."
+    },
+    {
+      "type": "text",
+      "id": "placeholder",
+      "label": "Input placeholder",
+      "default": "Ask products, collections, or enter AWB / Order ID"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Send"
+    },
+    {
+      "type": "text",
+      "id": "proxy_path",
+      "label": "Chat proxy path",
+      "default": "/apps/track-order/chat"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Order Assistant Preview</title>
+    <link rel="stylesheet" href="/preview-assets/order-tracker-widget.css" />
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(244, 122, 76, 0.1), transparent 26%),
+          linear-gradient(180deg, #fffaf7 0%, #f4eee8 100%);
+        color: #1b2530;
+      }
+
+      .preview-shell {
+        min-height: 100vh;
+        padding: 32px 20px 220px;
+      }
+
+      .preview-nav {
+        width: min(1100px, 100%);
+        margin: 0 auto;
+        padding: 18px 0 26px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .preview-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .preview-brand-mark {
+        width: 40px;
+        height: 40px;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #ffd6c3 0%, #f47a4c 100%);
+        color: #6f2e15;
+      }
+
+      .preview-nav-links {
+        display: inline-flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .preview-nav-links span {
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(27, 37, 48, 0.08);
+        color: #53606c;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .preview-layout {
+        width: min(1100px, 100%);
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+        gap: 24px;
+      }
+
+      .preview-hero,
+      .preview-order {
+        border-radius: 28px;
+        background: rgba(255, 255, 255, 0.84);
+        border: 1px solid rgba(27, 37, 48, 0.08);
+        box-shadow: 0 22px 50px rgba(27, 37, 48, 0.08);
+      }
+
+      .preview-hero {
+        padding: 32px;
+      }
+
+      .preview-kicker {
+        display: inline-flex;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: #fff0e7;
+        color: #b05731;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .preview-title {
+        margin: 18px 0 14px;
+        max-width: 620px;
+        font-size: clamp(34px, 5.4vw, 56px);
+        line-height: 0.98;
+        letter-spacing: -0.05em;
+      }
+
+      .preview-copy {
+        max-width: 700px;
+        margin: 0;
+        color: #5f6b77;
+        font-size: 17px;
+        line-height: 1.75;
+      }
+
+      .preview-grid {
+        margin-top: 26px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .preview-pill {
+        padding: 18px;
+        border-radius: 22px;
+        background: #ffffff;
+        border: 1px solid rgba(27, 37, 48, 0.08);
+      }
+
+      .preview-pill strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+      }
+
+      .preview-pill span {
+        color: #63707b;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .preview-order {
+        padding: 26px;
+      }
+
+      .preview-order-label {
+        display: inline-flex;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: #eef3f8;
+        color: #5c6773;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .preview-order-title {
+        margin: 16px 0 0;
+        font-size: 28px;
+        line-height: 1.04;
+      }
+
+      .preview-order-copy {
+        margin: 12px 0 0;
+        color: #66717c;
+        font-size: 14px;
+        line-height: 1.65;
+      }
+
+      .preview-order-box {
+        margin-top: 18px;
+        padding: 18px;
+        border-radius: 22px;
+        background: linear-gradient(180deg, #fff9f4 0%, #fff2e8 100%);
+        border: 1px solid rgba(244, 122, 76, 0.12);
+      }
+
+      .preview-order-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .preview-order-row + .preview-order-row {
+        margin-top: 12px;
+      }
+
+      .preview-order-key {
+        color: #7a8590;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .preview-order-value {
+        color: #1d2731;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      @media (max-width: 780px) {
+        .preview-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .preview-copy {
+          font-size: 16px;
+        }
+
+        .preview-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .preview-hero,
+        .preview-order {
+          padding: 24px 20px;
+          border-radius: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="preview-shell">
+      <div class="preview-nav">
+        <div class="preview-brand">
+          <span class="preview-brand-mark">OS</span>
+          <span>Order Support Preview</span>
+        </div>
+
+        <div class="preview-nav-links">
+          <span>Track</span>
+          <span>Returns</span>
+          <span>Delivery</span>
+          <span>Support</span>
+        </div>
+      </div>
+
+      <div class="preview-layout">
+        <section class="preview-hero">
+          <span class="preview-kicker">Local Preview</span>
+          <h1 class="preview-title">Left-side order assistant preview for quick local testing</h1>
+          <p class="preview-copy">
+            Yeh page sirf local demo ke liye hai. Launcher left-bottom me closed state me dikhega
+            taaki tum products, collections, stock, price queries, aur Shiprocket tracking flow
+            locally judge kar sako before Shopify pe deploy karna.
+          </p>
+
+          <div class="preview-grid">
+            <div class="preview-pill">
+              <strong>Catalog search</strong>
+              <span>Product keyword ya collection name bhejo and Shopify catalog se live results aayenge.</span>
+            </div>
+            <div class="preview-pill">
+              <strong>Order tracking</strong>
+              <span>AWB number ya order ID bhejo and Shiprocket se latest shipment status fetch hoga.</span>
+            </div>
+            <div class="preview-pill">
+              <strong>Preview tips</strong>
+              <span>Long chat ke baad message area ke andar hi scroll hoga, page ke andar nahi.</span>
+            </div>
+          </div>
+        </section>
+
+        <aside class="preview-order">
+          <span class="preview-order-label">Example Order</span>
+          <h2 class="preview-order-title">Sample shipment context</h2>
+          <p class="preview-order-copy">
+            Use this panel as a mock storefront area while testing the floating chatbot on the same page.
+          </p>
+
+          <div class="preview-order-box">
+            <div class="preview-order-row">
+              <span class="preview-order-key">Order ID</span>
+              <span class="preview-order-value">100001</span>
+            </div>
+            <div class="preview-order-row">
+              <span class="preview-order-key">AWB</span>
+              <span class="preview-order-value">123456789</span>
+            </div>
+            <div class="preview-order-row">
+              <span class="preview-order-key">Query Ideas</span>
+              <span class="preview-order-value">Where is my order?</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <div
+      id="shiprocket-order-tracker-preview"
+      class="shiprocket-order-tracker-root"
+      data-heading="Store assistant"
+      data-description="Ask about products, collections, price, stock availability, or enter AWB / order ID for tracking."
+      data-launcher-label="Chat with us"
+      data-welcome-message="Ask about products, collections, price, stock availability, or send your AWB / order ID for tracking."
+      data-placeholder="Ask products, collections, or enter AWB / Order ID"
+      data-button-label="Send"
+      data-proxy-path="/api/chatbot"
+      data-auto-open="false"
+    ></div>
+
+    <script src="/preview-assets/order-tracker-widget.js"></script>
+  </body>
+</html>

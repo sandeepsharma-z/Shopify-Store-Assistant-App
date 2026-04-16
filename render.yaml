@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: shopify-shiprocket-order-tracker
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SHIPROCKET_EMAIL
+        sync: false
+      - key: SHIPROCKET_PASSWORD
+        sync: false
+      - key: SHOPIFY_API_SECRET
+        sync: false
+      - key: ALLOW_ORIGIN
+        sync: false
