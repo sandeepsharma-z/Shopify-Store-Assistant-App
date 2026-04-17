@@ -55,6 +55,8 @@ function getServiceInfo() {
     success: true,
     service: 'shopify-shiprocket-order-tracker',
     health: '/health',
+    setup_status: '/api/setup-status',
+    app_home: '/shopify/app-home',
     chatbot: '/api/chatbot',
     track_order: '/api/track-order',
     shopify_proxy: '/apps/track-order',

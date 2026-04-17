@@ -6,6 +6,8 @@ Production-ready Node.js + Express backend for Shopify order tracking with Shipr
 
 - `POST /api/track-order` accepts `{ "awb": "..." }` or `{ "order_id": "..." }`
 - `POST /api/chatbot` accepts `{ "message": "..." }` for conversational support
+- `GET /api/setup-status` returns exact Shopify app values for the current deployed domain
+- `GET /shopify/app-home` shows a live setup page with the fields to paste in Shopify
 - Shiprocket authentication with in-memory token caching
 - Tracking lookup through Shiprocket AWB and order endpoints
 - Shopify Storefront API lookup for products and collections
@@ -23,6 +25,7 @@ Production-ready Node.js + Express backend for Shopify order tracking with Shipr
 .
 |-- controllers/
 |   |-- chatController.js
+|   |-- setupController.js
 |   `-- trackingController.js
 |-- extensions/
 |   `-- order-tracker-widget/
@@ -40,10 +43,12 @@ Production-ready Node.js + Express backend for Shopify order tracking with Shipr
 |   `-- verifyShopifyProxy.js
 |-- routes/
 |   |-- index.js
+|   |-- setupRoutes.js
 |   `-- trackingRoutes.js
 |-- services/
 |   |-- chatAssistant.js
-|   `-- shiprocket.js
+|   |-- shiprocket.js
+|   `-- shopifyCatalog.js
 |-- utils/
 |   |-- httpError.js
 |   |-- logger.js
@@ -52,6 +57,7 @@ Production-ready Node.js + Express backend for Shopify order tracking with Shipr
 |-- package.json
 |-- render.yaml
 |-- README.md
+|-- shopify.app.toml.example
 `-- server.js
 ```
 
@@ -63,6 +69,8 @@ Copy `.env.example` to `.env` and set the values:
 NODE_ENV=development
 PORT=5050
 ALLOW_ORIGIN=*
+SHOPIFY_APP_NAME=Shopify Store Assistant App
+SHOPIFY_APP_HANDLE=shopify-store-assistant-app
 SHIPROCKET_EMAIL=your-shiprocket-email
 SHIPROCKET_PASSWORD=your-shiprocket-password
 SHIPROCKET_BASE_URL=https://apiv2.shiprocket.in/v1/external
@@ -233,6 +241,13 @@ This repository contains the backend plus a ready-to-deploy theme app extension 
 
 Deploy this repository to Render or Railway first so Shopify can reach a public HTTPS URL.
 
+After deployment, open:
+
+- `https://your-domain.com/shopify/app-home`
+- `https://your-domain.com/api/setup-status`
+
+These routes show the exact App URL, redirect URLs, app proxy values, and missing environment variables for the deployed domain.
+
 ### 2. Configure the Shopify app proxy
 
 In your Shopify app settings, create an app proxy with:
@@ -249,7 +264,34 @@ The backend already exposes both:
 
 The proxy route verifies Shopify signatures when `SHOPIFY_API_SECRET` is set.
 
-### 3. Deploy the theme app extension
+### 3. Fill Shopify app settings
+
+In Shopify app setup, use the values shown on `/shopify/app-home`:
+
+- App URL: `https://your-domain.com/shopify/app-home`
+- Allowed redirection URL: `https://your-domain.com/auth/callback`
+- Allowed redirection URL: `https://your-domain.com/auth/oauth/callback`
+- App proxy prefix: `apps`
+- App proxy subpath: `track-order`
+- App proxy URL: `https://your-domain.com/apps/track-order`
+
+Shiprocket credentials are **not** filled in Shopify app settings. Keep `SHIPROCKET_EMAIL` and `SHIPROCKET_PASSWORD` only in your backend environment variables.
+
+If you are using Shopify CLI for a separate app project, copy the sample in `shopify.app.toml.example` and replace the domain and API key with your real values.
+
+### 4. Create Storefront API token
+
+For product and collection answers, create a Storefront access token in Shopify and enable:
+
+- `unauthenticated_read_product_listings`
+- `unauthenticated_read_product_inventory`
+
+Then set these environment variables on your backend:
+
+- `SHOPIFY_STORE_DOMAIN`
+- `SHOPIFY_STOREFRONT_ACCESS_TOKEN`
+
+### 5. Deploy the theme app extension
 
 The storefront widget lives in:
 
@@ -272,7 +314,7 @@ The widget now renders a floating storefront chatbot with:
 - quick action suggestions
 - pro chat styling with launcher, message bubbles, and tracking summary cards
 
-### 4. Local Shopify testing
+### 6. Local Shopify testing
 
 For local testing, run the Node server and expose it through a tunnel. Point the app proxy to the tunnel URL. In non-production mode, proxy signature validation is skipped if `SHOPIFY_API_SECRET` is not set.
 
@@ -318,11 +360,14 @@ Use `reply` as the message text inside your chatbot flow. The same endpoint also
    - Start command: `npm start`
 4. Add these environment variables in Render:
    - `NODE_ENV=production`
+   - `SHOPIFY_APP_NAME=Shopify Store Assistant App`
+   - `SHOPIFY_APP_HANDLE=shopify-store-assistant-app`
    - `SHIPROCKET_EMAIL`
    - `SHIPROCKET_PASSWORD`
    - `SHOPIFY_API_SECRET`
    - `SHOPIFY_STORE_DOMAIN`
    - `SHOPIFY_STOREFRONT_ACCESS_TOKEN`
+   - `SHOPIFY_STOREFRONT_API_VERSION=2025-07`
    - `ALLOW_ORIGIN`
 
 ### Blueprint flow
