@@ -1,0 +1,33 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "61b6a71920d6e2804fd66ae2047d4cb7"
+name = "Store Assistant App"
+application_url = "https://shopify-store-assistant-app.vercel.app/shopify/app-home"
+embedded = true
+handle = "store-assistant-app"
+
+[build]
+automatically_update_urls_on_dev = false
+
+[webhooks]
+api_version = "2026-04"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_app_proxy"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://shopify-store-assistant-app.vercel.app/auth/callback",
+  "https://shopify-store-assistant-app.vercel.app/auth/oauth/callback"
+]
+
+[app_proxy]
+url = "https://shopify-store-assistant-app.vercel.app/apps/track-order"
+subpath = "track-order"
+prefix = "apps"
+
+[app_preferences]
+url = "https://shopify-store-assistant-app.vercel.app/shopify/app-home"

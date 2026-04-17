@@ -79,7 +79,32 @@ function getServiceInfo() {
   };
 }
 
+function isShopifyAdminRequest(req) {
+  return Boolean(req.query?.shop || req.query?.host || req.query?.embedded);
+}
+
 app.get('/', (req, res) => {
+  if (isShopifyAdminRequest(req)) {
+    const searchParams = new URLSearchParams();
+
+    Object.entries(req.query || {}).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach((item) => {
+          searchParams.append(key, item);
+        });
+        return;
+      }
+
+      if (typeof value === 'string') {
+        searchParams.set(key, value);
+      }
+    });
+
+    const search = searchParams.toString();
+    res.redirect(`/shopify/app-home${search ? `?${search}` : ''}`);
+    return;
+  }
+
   if (req.accepts('html')) {
     res.sendFile(path.join(__dirname, 'public', 'preview.html'));
     return;

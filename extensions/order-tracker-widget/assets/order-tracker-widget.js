@@ -1,6 +1,6 @@
 (function bootstrapOrderAssistant() {
   const rootSelector = '.shiprocket-order-tracker-root';
-  const sessionKeyPrefix = 'shiprocket-order-assistant:v6:';
+  const sessionKeyPrefix = 'shiprocket-order-assistant:v7:';
   const maxStoredMessages = 30;
   const defaultSuggestions = [
     'Track my order',
@@ -53,6 +53,54 @@
     return new Promise(function resolveAfterDelay(resolve) {
       window.setTimeout(resolve, ms);
     });
+  }
+
+  function isStorefrontProxyPath(pathname) {
+    return typeof pathname === 'string' && /^\/apps\//.test(pathname);
+  }
+
+  async function requestAssistantReply(proxyPath, message) {
+    const normalizedPath = typeof proxyPath === 'string' && proxyPath.trim() ? proxyPath.trim() : '/apps/track-order/chat';
+    const headers = {
+      Accept: 'application/json',
+    };
+
+    if (isStorefrontProxyPath(normalizedPath)) {
+      const url = new URL(normalizedPath, window.location.origin);
+
+      url.searchParams.set('message', message);
+      url.searchParams.set('_client', 'widget');
+
+      const proxyResponse = await fetch(url.toString(), {
+        method: 'GET',
+        headers: headers,
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const proxyPayload = await parseJsonSafe(proxyResponse);
+
+      if (proxyPayload && typeof proxyPayload.reply === 'string' && proxyPayload.reply.trim()) {
+        return proxyPayload;
+      }
+
+      if (!/myshopify\.com$/i.test(window.location.hostname)) {
+        return requestAssistantReply('/api/chatbot', message);
+      }
+
+      return proxyPayload;
+    }
+
+    headers['Content-Type'] = 'application/json';
+
+    const directResponse = await fetch(normalizedPath, {
+      method: 'POST',
+      headers: headers,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      body: JSON.stringify({ message: message }),
+    });
+
+    return parseJsonSafe(directResponse);
   }
 
   function readSessionState(storageKey) {
@@ -607,8 +655,10 @@
       root.dataset.description ||
       'Ask about products, collections, prices, availability, shipping, returns, or enter AWB / order ID for live tracking.';
     const launcherLabel = root.dataset.launcherLabel || 'Chat with us';
+    const configuredPlaceholder =
+      root.dataset.placeholder || 'Type message, AWB or order ID';
     const placeholder =
-      root.dataset.placeholder || 'Ask products, collections, shipping, or enter AWB / Order ID';
+      configuredPlaceholder.length > 34 ? 'Type message, AWB or order ID' : configuredPlaceholder;
     const buttonLabel = root.dataset.buttonLabel || 'Send';
     const proxyPath = root.dataset.proxyPath || '/apps/track-order/chat';
     const autoOpen = root.dataset.autoOpen === 'true';
@@ -687,11 +737,13 @@
     const suggestions = createElement('div', 'shiprocket-chat-suggestions');
 
     const composer = createElement('form', 'shiprocket-chat-composer');
-    const input = createElement('textarea', 'shiprocket-chat-input');
+    const input = createElement('input', 'shiprocket-chat-input');
     const sendButton = createButton('shiprocket-chat-send', buttonLabel, 'submit');
 
     input.name = 'message';
-    input.rows = 1;
+    input.type = 'text';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
     input.placeholder = placeholder;
     input.setAttribute('aria-label', 'Chat message');
 
@@ -790,21 +842,12 @@
       updateIntroVisibility();
 
       input.value = '';
-      input.style.height = 'auto';
       setLoading(true);
 
       try {
-        const response = await fetch(proxyPath, {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ message: message }),
-        });
-        const payload = await parseJsonSafe(response);
+        const payload = await requestAssistantReply(proxyPath, message);
         const finalPayload =
-          payload && payload.reply
+          payload && typeof payload.reply === 'string' && payload.reply.trim()
             ? payload
             : {
                 success: false,
@@ -859,7 +902,6 @@
       state.suggestions = defaultSuggestions.slice();
       seedConversation(true);
       input.value = '';
-      input.style.height = 'auto';
       input.focus();
     }
 
@@ -880,13 +922,8 @@
       submitPrompt(input.value);
     });
 
-    input.addEventListener('input', function autoResize() {
-      input.style.height = 'auto';
-      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-    });
-
     input.addEventListener('keydown', function onKeyDown(event) {
-      if (event.key === 'Enter' && !event.shiftKey) {
+      if (event.key === 'Enter') {
         event.preventDefault();
         submitPrompt(input.value);
       }
