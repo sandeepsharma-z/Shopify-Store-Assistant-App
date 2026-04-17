@@ -1,6 +1,6 @@
 (function bootstrapOrderAssistant() {
   const rootSelector = '.shiprocket-order-tracker-root';
-  const sessionKeyPrefix = 'shiprocket-order-assistant:v7:';
+  const sessionKeyPrefix = 'shiprocket-order-assistant:v8:';
   const maxStoredMessages = 30;
   const defaultSuggestions = [
     'Track my order',
@@ -59,11 +59,31 @@
     return typeof pathname === 'string' && /^\/apps\//.test(pathname);
   }
 
-  async function requestAssistantReply(proxyPath, message) {
-    const normalizedPath = typeof proxyPath === 'string' && proxyPath.trim() ? proxyPath.trim() : '/apps/track-order/chat';
-    const headers = {
-      Accept: 'application/json',
+  async function requestDirectAssistantReply(apiUrl, message) {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      credentials: 'omit',
+      cache: 'no-store',
+      body: JSON.stringify({ message: message }),
+    });
+
+    const payload = await parseJsonSafe(response);
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      payload: payload,
     };
+  }
+
+  async function requestAssistantReply(proxyPath, message, directApiUrl) {
+    const normalizedPath = typeof proxyPath === 'string' && proxyPath.trim() ? proxyPath.trim() : '/apps/track-order/chat';
+    const normalizedDirectApiUrl =
+      typeof directApiUrl === 'string' && directApiUrl.trim() ? directApiUrl.trim() : '';
 
     if (isStorefrontProxyPath(normalizedPath)) {
       const url = new URL(normalizedPath, window.location.origin);
@@ -73,34 +93,31 @@
 
       const proxyResponse = await fetch(url.toString(), {
         method: 'GET',
-        headers: headers,
+        headers: {
+          Accept: 'application/json',
+        },
         credentials: 'same-origin',
         cache: 'no-store',
       });
       const proxyPayload = await parseJsonSafe(proxyResponse);
 
-      if (proxyPayload && typeof proxyPayload.reply === 'string' && proxyPayload.reply.trim()) {
+      if (proxyResponse.ok && proxyPayload && typeof proxyPayload.reply === 'string' && proxyPayload.reply.trim()) {
         return proxyPayload;
       }
 
-      if (!/myshopify\.com$/i.test(window.location.hostname)) {
-        return requestAssistantReply('/api/chatbot', message);
+      if (normalizedDirectApiUrl) {
+        const directResponse = await requestDirectAssistantReply(normalizedDirectApiUrl, message);
+
+        if (directResponse.payload && typeof directResponse.payload.reply === 'string' && directResponse.payload.reply.trim()) {
+          return directResponse.payload;
+        }
       }
 
       return proxyPayload;
     }
 
-    headers['Content-Type'] = 'application/json';
-
-    const directResponse = await fetch(normalizedPath, {
-      method: 'POST',
-      headers: headers,
-      credentials: 'same-origin',
-      cache: 'no-store',
-      body: JSON.stringify({ message: message }),
-    });
-
-    return parseJsonSafe(directResponse);
+    const directResponse = await requestDirectAssistantReply(normalizedPath, message);
+    return directResponse.payload;
   }
 
   function readSessionState(storageKey) {
@@ -661,6 +678,9 @@
       configuredPlaceholder.length > 34 ? 'Type message, AWB or order ID' : configuredPlaceholder;
     const buttonLabel = root.dataset.buttonLabel || 'Send';
     const proxyPath = root.dataset.proxyPath || '/apps/track-order/chat';
+    const directApiUrl =
+      root.dataset.directApiUrl ||
+      'https://shopify-store-assistant-app.vercel.app/api/chatbot';
     const autoOpen = root.dataset.autoOpen === 'true';
     const storageKey = sessionKeyPrefix + (root.id || 'default');
     const storedState = readSessionState(storageKey);
@@ -845,7 +865,7 @@
       setLoading(true);
 
       try {
-        const payload = await requestAssistantReply(proxyPath, message);
+        const payload = await requestAssistantReply(proxyPath, message, directApiUrl);
         const finalPayload =
           payload && typeof payload.reply === 'string' && payload.reply.trim()
             ? payload

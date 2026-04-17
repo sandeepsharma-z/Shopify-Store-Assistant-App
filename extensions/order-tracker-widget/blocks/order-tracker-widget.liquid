@@ -8,6 +8,7 @@
   data-placeholder="{{ block.settings.placeholder | escape }}"
   data-button-label="{{ block.settings.button_label | escape }}"
   data-proxy-path="{{ block.settings.proxy_path | escape }}"
+  data-direct-api-url="{{ block.settings.direct_api_url | escape }}"
   {{ block.shopify_attributes }}
 ></div>
 
@@ -59,6 +60,12 @@
       "id": "proxy_path",
       "label": "Chat proxy path",
       "default": "/apps/track-order/chat"
+    },
+    {
+      "type": "text",
+      "id": "direct_api_url",
+      "label": "Direct API URL",
+      "default": "https://shopify-store-assistant-app.vercel.app/api/chatbot"
     }
   ]
 }
