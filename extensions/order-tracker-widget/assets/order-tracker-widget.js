@@ -8,6 +8,12 @@
     'Browse collections',
     'Shipping policy',
   ];
+  const launcherHighlights = [
+    'Track orders instantly',
+    'Discover top products',
+    'Browse fresh collections',
+    'Get live delivery updates',
+  ];
   const starterPrompts = [
     'Track my order',
     'Find products',
@@ -53,6 +59,35 @@
     return new Promise(function resolveAfterDelay(resolve) {
       window.setTimeout(resolve, ms);
     });
+  }
+
+  function startLauncherTextRotation(node, phrases) {
+    if (!node || !Array.isArray(phrases) || phrases.length < 2) {
+      return;
+    }
+
+    const prefersReducedMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion) {
+      node.textContent = phrases[0];
+      return;
+    }
+
+    let index = 0;
+
+    node.textContent = phrases[index];
+
+    window.setInterval(function rotateText() {
+      node.classList.add('is-changing');
+
+      window.setTimeout(function swapText() {
+        index = (index + 1) % phrases.length;
+        node.textContent = phrases[index];
+        node.classList.remove('is-changing');
+      }, 220);
+    }, 2600);
   }
 
   function isStorefrontProxyPath(pathname) {
@@ -724,7 +759,7 @@
     const launcherSubtitle = createElement(
       'span',
       'shiprocket-chat-launcher-subtitle',
-      'Products, collections, tracking',
+      launcherHighlights[0],
     );
 
     launcherIcon.appendChild(launcherIconBubble);
@@ -802,6 +837,7 @@
     root.appendChild(launcher);
     root.appendChild(panel);
 
+    startLauncherTextRotation(launcherSubtitle, launcherHighlights);
     renderStarterPrompts(promptRow, submitPrompt);
 
     let typingNode = null;
