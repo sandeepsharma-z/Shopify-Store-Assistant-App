@@ -59,7 +59,15 @@
     return typeof pathname === 'string' && /^\/apps\//.test(pathname);
   }
 
-  async function requestDirectAssistantReply(apiUrl, message) {
+  async function requestDirectAssistantReply(apiUrl, message, shopDomain) {
+    const requestPayload = {
+      message: message,
+    };
+
+    if (typeof shopDomain === 'string' && shopDomain.trim()) {
+      requestPayload.shopDomain = shopDomain.trim();
+    }
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -68,7 +76,7 @@
       },
       credentials: 'omit',
       cache: 'no-store',
-      body: JSON.stringify({ message: message }),
+      body: JSON.stringify(requestPayload),
     });
 
     const payload = await parseJsonSafe(response);
@@ -80,7 +88,7 @@
     };
   }
 
-  async function requestAssistantReply(proxyPath, message, directApiUrl) {
+  async function requestAssistantReply(proxyPath, message, directApiUrl, shopDomain) {
     const normalizedPath = typeof proxyPath === 'string' && proxyPath.trim() ? proxyPath.trim() : '/apps/track-order/chat';
     const normalizedDirectApiUrl =
       typeof directApiUrl === 'string' && directApiUrl.trim() ? directApiUrl.trim() : '';
@@ -106,7 +114,11 @@
       }
 
       if (normalizedDirectApiUrl) {
-        const directResponse = await requestDirectAssistantReply(normalizedDirectApiUrl, message);
+        const directResponse = await requestDirectAssistantReply(
+          normalizedDirectApiUrl,
+          message,
+          shopDomain,
+        );
 
         if (directResponse.payload && typeof directResponse.payload.reply === 'string' && directResponse.payload.reply.trim()) {
           return directResponse.payload;
@@ -116,7 +128,7 @@
       return proxyPayload;
     }
 
-    const directResponse = await requestDirectAssistantReply(normalizedPath, message);
+    const directResponse = await requestDirectAssistantReply(normalizedPath, message, shopDomain);
     return directResponse.payload;
   }
 
@@ -681,6 +693,7 @@
     const directApiUrl =
       root.dataset.directApiUrl ||
       'https://shopify-store-assistant-app.vercel.app/api/chatbot';
+    const shopDomain = root.dataset.shopDomain || '';
     const autoOpen = root.dataset.autoOpen === 'true';
     const storageKey = sessionKeyPrefix + (root.id || 'default');
     const storedState = readSessionState(storageKey);
@@ -865,7 +878,7 @@
       setLoading(true);
 
       try {
-        const payload = await requestAssistantReply(proxyPath, message, directApiUrl);
+        const payload = await requestAssistantReply(proxyPath, message, directApiUrl, shopDomain);
         const finalPayload =
           payload && typeof payload.reply === 'string' && payload.reply.trim()
             ? payload

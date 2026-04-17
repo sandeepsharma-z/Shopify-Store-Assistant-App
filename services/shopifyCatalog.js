@@ -153,6 +153,7 @@ const OVERVIEW_HINTS = [
 const RECOMMENDATION_HINTS = [
   'recommend',
   'suggest',
+  'best',
   'best seller',
   'bestseller',
   'popular',
@@ -173,6 +174,11 @@ const FILLER_PATTERNS = [
   /\bbrowse\b/gi,
   /\blist\b/gi,
   /\btell me about\b/gi,
+  /\bwhich is\b/gi,
+  /\bwhat is\b/gi,
+  /\bwhich are\b/gi,
+  /\bwhat are\b/gi,
+  /\bis the\b/gi,
   /\blooking for\b/gi,
   /\bi want\b/gi,
   /\bi need\b/gi,
@@ -196,6 +202,7 @@ const FILLER_PATTERNS = [
   /\brecommend\b/gi,
   /\bsuggest\b/gi,
   /\bfeatured\b/gi,
+  /\bbest\b/gi,
   /\bpopular\b/gi,
   /\bbest seller\b/gi,
   /\bnew arrivals?\b/gi,
@@ -208,9 +215,9 @@ function getStorefrontConfig(preferredShopDomain) {
     .trim()
     .replace(/^https?:\/\//i, '')
     .replace(/\/+$/, '');
-  const accessToken = String(runtime.storefrontAccessToken || '').trim();
+  const accessToken = String(runtime.storefrontAccessToken || '').trim() || null;
 
-  if (!shopDomain || !accessToken) {
+  if (!shopDomain) {
     return null;
   }
 
@@ -486,7 +493,9 @@ async function storefrontQuery(config, variables) {
         timeout: SHOPIFY_STOREFRONT_TIMEOUT_MS,
         headers: {
           'Content-Type': 'application/json',
-          'X-Shopify-Storefront-Access-Token': config.accessToken,
+          ...(config.accessToken
+            ? { 'X-Shopify-Storefront-Access-Token': config.accessToken }
+            : {}),
         },
       },
     );

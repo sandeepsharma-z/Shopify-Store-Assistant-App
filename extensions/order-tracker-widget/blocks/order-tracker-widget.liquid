@@ -9,6 +9,7 @@
   data-button-label="{{ block.settings.button_label | escape }}"
   data-proxy-path="{{ block.settings.proxy_path | escape }}"
   data-direct-api-url="{{ block.settings.direct_api_url | escape }}"
+  data-shop-domain="{{ shop.permanent_domain | default: shop.domain | escape }}"
   {{ block.shopify_attributes }}
 ></div>
 

@@ -275,12 +275,14 @@ function saveStoreSettings(shopDomain, payload = {}) {
 function buildRuntimeSettings(shopDomain) {
   const requestedShop = normalizeShopDomain(shopDomain);
   const normalizedShop = isValidShopDomain(requestedShop) ? requestedShop : null;
+  const runtimeShopDomain = requestedShop || null;
   const saved = normalizedShop ? getStoreSettings(normalizedShop) : null;
   const settings = saved?.settings || {};
 
   return {
     shopDomain:
       normalizedShop ||
+      runtimeShopDomain ||
       firstText(process.env.SHOPIFY_STORE_DOMAIN) ||
       null,
     shiprocketEmail: settings.shiprocketEmail || firstText(process.env.SHIPROCKET_EMAIL),
