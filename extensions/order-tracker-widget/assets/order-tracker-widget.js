@@ -59,6 +59,17 @@
     return typeof pathname === 'string' && /^\/apps\//.test(pathname);
   }
 
+  function getDetectedShopDomain(fallbackValue) {
+    const fallback = typeof fallbackValue === 'string' ? fallbackValue.trim() : '';
+    const hostname = typeof window.location.hostname === 'string' ? window.location.hostname.trim() : '';
+
+    if (hostname && !/^(localhost|127\.0\.0\.1)$/i.test(hostname)) {
+      return hostname;
+    }
+
+    return fallback;
+  }
+
   async function requestDirectAssistantReply(apiUrl, message, shopDomain) {
     const requestPayload = {
       message: message,
@@ -693,7 +704,7 @@
     const directApiUrl =
       root.dataset.directApiUrl ||
       'https://shopify-store-assistant-app.vercel.app/api/chatbot';
-    const shopDomain = root.dataset.shopDomain || '';
+    const shopDomain = getDetectedShopDomain(root.dataset.shopDomain || '');
     const autoOpen = root.dataset.autoOpen === 'true';
     const storageKey = sessionKeyPrefix + (root.id || 'default');
     const storedState = readSessionState(storageKey);
