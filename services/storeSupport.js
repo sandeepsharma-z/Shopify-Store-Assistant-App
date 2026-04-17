@@ -1,3 +1,5 @@
+const { buildRuntimeSettings } = require('./storeSettings');
+
 function firstText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
@@ -21,23 +23,22 @@ function buildStoreUrl(shopDomain) {
 }
 
 function getSupportConfig(shopDomain) {
+  const runtime = buildRuntimeSettings(shopDomain);
+
   return {
-    storeName:
-      firstText(process.env.STORE_NAME) ||
-      firstText(process.env.SHOPIFY_APP_NAME) ||
-      'our store',
-    supportEmail: firstText(process.env.STORE_SUPPORT_EMAIL),
-    supportPhone: firstText(process.env.STORE_SUPPORT_PHONE),
-    supportWhatsapp: firstText(process.env.STORE_SUPPORT_WHATSAPP),
-    supportHours: firstText(process.env.STORE_SUPPORT_HOURS),
-    shippingPolicy: firstText(process.env.STORE_SHIPPING_POLICY),
-    returnPolicy: firstText(process.env.STORE_RETURN_POLICY),
-    codPolicy: firstText(process.env.STORE_COD_POLICY),
-    cancellationPolicy: firstText(process.env.STORE_CANCELLATION_POLICY),
-    orderProcessingTime: firstText(process.env.STORE_ORDER_PROCESSING_TIME),
-    aboutText: firstText(process.env.STORE_ABOUT_TEXT),
-    contactUrl: firstText(process.env.STORE_CONTACT_URL),
-    storeUrl: buildStoreUrl(shopDomain),
+    storeName: runtime.storeName || 'our store',
+    supportEmail: runtime.supportEmail,
+    supportPhone: runtime.supportPhone,
+    supportWhatsapp: runtime.supportWhatsapp,
+    supportHours: runtime.supportHours,
+    shippingPolicy: runtime.shippingPolicy,
+    returnPolicy: runtime.returnPolicy,
+    codPolicy: runtime.codPolicy,
+    cancellationPolicy: runtime.cancellationPolicy,
+    orderProcessingTime: runtime.orderProcessingTime,
+    aboutText: runtime.aboutText,
+    contactUrl: runtime.contactUrl,
+    storeUrl: buildStoreUrl(runtime.shopDomain),
   };
 }
 

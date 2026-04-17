@@ -1,6 +1,7 @@
 const axios = require('axios');
 
 const logger = require('../utils/logger');
+const { buildRuntimeSettings } = require('./storeSettings');
 
 const SHOPIFY_STOREFRONT_TIMEOUT_MS = Number(process.env.SHOPIFY_STOREFRONT_TIMEOUT_MS || 15000);
 const SHOPIFY_CATALOG_CACHE_TTL_MS = Number(process.env.SHOPIFY_CATALOG_CACHE_TTL_MS || 300000);
@@ -202,11 +203,12 @@ const FILLER_PATTERNS = [
 ];
 
 function getStorefrontConfig(preferredShopDomain) {
-  const shopDomain = String(preferredShopDomain || process.env.SHOPIFY_STORE_DOMAIN || '')
+  const runtime = buildRuntimeSettings(preferredShopDomain);
+  const shopDomain = String(runtime.shopDomain || '')
     .trim()
     .replace(/^https?:\/\//i, '')
     .replace(/\/+$/, '');
-  const accessToken = String(process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || '').trim();
+  const accessToken = String(runtime.storefrontAccessToken || '').trim();
 
   if (!shopDomain || !accessToken) {
     return null;

@@ -49,6 +49,7 @@ app.use(
   '/preview-assets',
   express.static(path.join(__dirname, 'extensions', 'order-tracker-widget', 'assets')),
 );
+app.use('/public-assets', express.static(path.join(__dirname, 'public')));
 
 function getServiceInfo() {
   return {
@@ -57,6 +58,7 @@ function getServiceInfo() {
     health: '/health',
     setup_status: '/api/setup-status',
     app_home: '/shopify/app-home',
+    store_settings: '/api/store-settings',
     chatbot: '/api/chatbot',
     track_order: '/api/track-order',
     shopify_proxy: '/apps/track-order',

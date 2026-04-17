@@ -2,6 +2,7 @@ const axios = require('axios');
 
 const { HttpError } = require('../utils/httpError');
 const logger = require('../utils/logger');
+const { buildRuntimeSettings } = require('./storeSettings');
 const {
   buildReply,
   formatHumanDate,
@@ -25,21 +26,32 @@ const shiprocketClient = axios.create({
   },
 });
 
-const authCache = {
-  token: null,
-  expiresAt: 0,
-  pendingPromise: null,
-};
+const authCacheByKey = new Map();
 
 function clearAuthCache() {
-  authCache.token = null;
-  authCache.expiresAt = 0;
-  authCache.pendingPromise = null;
+  authCacheByKey.clear();
 }
 
-function getShiprocketCredentials() {
-  const email = (process.env.SHIPROCKET_EMAIL || '').trim();
-  const password = (process.env.SHIPROCKET_PASSWORD || '').trim();
+function getAuthCacheEntry(cacheKey) {
+  if (!authCacheByKey.has(cacheKey)) {
+    authCacheByKey.set(cacheKey, {
+      token: null,
+      expiresAt: 0,
+      pendingPromise: null,
+    });
+  }
+
+  return authCacheByKey.get(cacheKey);
+}
+
+function clearAuthCacheEntry(cacheKey) {
+  authCacheByKey.delete(cacheKey);
+}
+
+function getShiprocketCredentials(shopDomain) {
+  const runtime = buildRuntimeSettings(shopDomain);
+  const email = String(runtime.shiprocketEmail || '').trim();
+  const password = String(runtime.shiprocketPassword || '').trim();
 
   if (!email || !password) {
     throw new HttpError(
@@ -49,7 +61,11 @@ function getShiprocketCredentials() {
     );
   }
 
-  return { email, password };
+  return {
+    email,
+    password,
+    cacheKey: email.toLowerCase(),
+  };
 }
 
 function firstNonEmptyString(values) {
@@ -356,47 +372,59 @@ function mapShiprocketError(error, context = {}) {
   );
 }
 
-async function authenticate() {
-  if (authCache.token && Date.now() < authCache.expiresAt) {
-    return authCache.token;
+async function authenticate(shopDomain) {
+  const credentials = getShiprocketCredentials(shopDomain);
+  const cacheEntry = getAuthCacheEntry(credentials.cacheKey);
+
+  if (cacheEntry.token && Date.now() < cacheEntry.expiresAt) {
+    return {
+      token: cacheEntry.token,
+      cacheKey: credentials.cacheKey,
+    };
   }
 
-  if (authCache.pendingPromise) {
-    return authCache.pendingPromise;
+  if (cacheEntry.pendingPromise) {
+    return cacheEntry.pendingPromise;
   }
 
-  authCache.pendingPromise = (async () => {
-    const credentials = getShiprocketCredentials();
+  cacheEntry.pendingPromise = (async () => {
 
     try {
-      const response = await shiprocketClient.post('/auth/login', credentials);
+      const response = await shiprocketClient.post('/auth/login', {
+        email: credentials.email,
+        password: credentials.password,
+      });
       const token = response.data?.token;
 
       if (!token) {
         throw new HttpError(502, 'Shiprocket authentication failed.', 'SHIPROCKET_AUTH_FAILED');
       }
 
-      authCache.token = token;
-      authCache.expiresAt = Date.now() + SHIPROCKET_TOKEN_TTL_MS;
+      cacheEntry.token = token;
+      cacheEntry.expiresAt = Date.now() + SHIPROCKET_TOKEN_TTL_MS;
 
       logger.info('Shiprocket token cached', {
-        expiresAt: new Date(authCache.expiresAt).toISOString(),
+        cacheKey: credentials.cacheKey,
+        expiresAt: new Date(cacheEntry.expiresAt).toISOString(),
       });
 
-      return token;
+      return {
+        token,
+        cacheKey: credentials.cacheKey,
+      };
     } catch (error) {
-      clearAuthCache();
+      clearAuthCacheEntry(credentials.cacheKey);
       throw mapShiprocketError(error);
     } finally {
-      authCache.pendingPromise = null;
+      cacheEntry.pendingPromise = null;
     }
   })();
 
-  return authCache.pendingPromise;
+  return cacheEntry.pendingPromise;
 }
 
-async function requestWithAuth(config, allowRetry = true) {
-  const token = await authenticate();
+async function requestWithAuth(config, { shopDomain, allowRetry = true } = {}) {
+  const { token, cacheKey } = await authenticate(shopDomain);
 
   try {
     return await shiprocketClient.request({
@@ -408,14 +436,14 @@ async function requestWithAuth(config, allowRetry = true) {
     });
   } catch (error) {
     if (allowRetry && error.response?.status === 401) {
-      clearAuthCache();
-      const freshToken = await authenticate();
+      clearAuthCacheEntry(cacheKey);
+      const freshAuth = await authenticate(shopDomain);
 
       return shiprocketClient.request({
         ...config,
         headers: {
           ...(config.headers || {}),
-          Authorization: `Bearer ${freshToken}`,
+          Authorization: `Bearer ${freshAuth.token}`,
         },
       });
     }
@@ -424,12 +452,12 @@ async function requestWithAuth(config, allowRetry = true) {
   }
 }
 
-async function fetchByAwb(awb) {
+async function fetchByAwb(awb, shopDomain) {
   try {
     const response = await requestWithAuth({
       method: 'GET',
       url: `/courier/track/awb/${encodeURIComponent(awb)}`,
-    });
+    }, { shopDomain });
     const summary = extractTrackingSummary(response.data, { awb });
 
     if (!summary.hasEvidence) {
@@ -447,23 +475,23 @@ async function fetchByAwb(awb) {
   }
 }
 
-async function fetchOrderDetails(orderId) {
+async function fetchOrderDetails(orderId, shopDomain) {
   const response = await requestWithAuth({
     method: 'GET',
     url: `/orders/show/${encodeURIComponent(orderId)}`,
-  });
+  }, { shopDomain });
 
   return response.data;
 }
 
-async function fetchByOrderId(orderId) {
+async function fetchByOrderId(orderId, shopDomain) {
   try {
-    const orderPayload = await fetchOrderDetails(orderId);
+    const orderPayload = await fetchOrderDetails(orderId, shopDomain);
     const awb = extractAwb(orderPayload);
 
     if (awb) {
       try {
-        const liveTracking = await fetchByAwb(awb);
+        const liveTracking = await fetchByAwb(awb, shopDomain);
         return {
           ...liveTracking,
           order_id: orderId,
@@ -494,12 +522,12 @@ async function fetchByOrderId(orderId) {
   }
 }
 
-async function fetchTracking({ awb, orderId }) {
+async function fetchTracking({ awb, orderId, shopDomain }) {
   if (awb) {
-    return fetchByAwb(awb);
+    return fetchByAwb(awb, shopDomain);
   }
 
-  return fetchByOrderId(orderId);
+  return fetchByOrderId(orderId, shopDomain);
 }
 
 module.exports = {

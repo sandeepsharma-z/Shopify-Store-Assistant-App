@@ -1,16 +1,18 @@
 # Shopify Shiprocket Order Tracker
 
-Production-ready Node.js + Express backend for Shopify order tracking with Shiprocket, plus a storefront app-embed assistant for products, collections, price, stock, and tracking queries.
+Production-ready Node.js + Express backend for Shopify order tracking with Shiprocket, plus a storefront app-embed assistant for products, collections, prices, stock, tracking, and store-support queries.
 
 ## Features
 
 - `POST /api/track-order` accepts `{ "awb": "..." }` or `{ "order_id": "..." }`
 - `POST /api/chatbot` accepts `{ "message": "..." }` for conversational support
 - `GET /api/setup-status` returns exact Shopify app values for the current deployed domain
-- `GET /shopify/app-home` shows a live setup page with the fields to paste in Shopify
+- `GET /shopify/app-home` shows a live Shopify app settings page with editable merchant configuration
 - Shiprocket authentication with in-memory token caching
 - Tracking lookup through Shiprocket AWB and order endpoints
 - Shopify Storefront API lookup for products and collections
+- Per-store merchant settings save for Shiprocket, Storefront token, and support policies
+- Encrypted storage for saved merchant secrets
 - Config-driven support answers for shipping, returns, payments, cancellation, and contact details
 - Clean customer-facing reply text with status, last location, and expected delivery
 - Input validation, CORS, Helmet, and structured logging
@@ -26,6 +28,7 @@ Production-ready Node.js + Express backend for Shopify order tracking with Shipr
 .
 |-- controllers/
 |   |-- chatController.js
+|   |-- settingsController.js
 |   |-- setupController.js
 |   `-- trackingController.js
 |-- extensions/
@@ -40,8 +43,12 @@ Production-ready Node.js + Express backend for Shopify order tracking with Shipr
 |   |-- validateChatRequest.js
 |   |-- errorHandler.js
 |   |-- notFound.js
+|   |-- requireSettingsAccess.js
 |   |-- validateTrackRequest.js
 |   `-- verifyShopifyProxy.js
+|-- public/
+|   |-- app-home.css
+|   `-- app-home.js
 |-- routes/
 |   |-- index.js
 |   |-- setupRoutes.js
@@ -50,10 +57,12 @@ Production-ready Node.js + Express backend for Shopify order tracking with Shipr
 |   |-- chatAssistant.js
 |   |-- shiprocket.js
 |   |-- shopifyCatalog.js
+|   |-- storeSettings.js
 |   `-- storeSupport.js
 |-- utils/
 |   |-- httpError.js
 |   |-- logger.js
+|   |-- shopify.js
 |   `-- trackFormatter.js
 |-- .env.example
 |-- package.json
@@ -73,6 +82,8 @@ PORT=5050
 ALLOW_ORIGIN=*
 SHOPIFY_APP_NAME=Shopify Store Assistant App
 SHOPIFY_APP_HANDLE=shopify-store-assistant-app
+STORE_SETTINGS_FILE=./data/store-settings.json
+SETTINGS_ENCRYPTION_KEY=change-this-in-production
 SHIPROCKET_EMAIL=your-shiprocket-email
 SHIPROCKET_PASSWORD=your-shiprocket-password
 SHIPROCKET_BASE_URL=https://apiv2.shiprocket.in/v1/external
@@ -99,7 +110,9 @@ STORE_ABOUT_TEXT=We offer curated products with fast shipping and support.
 ```
 
 `SHIPROCKET_TOKEN_TTL_MS` defaults to 10 days so the app does not log in on every request. Shiprocket tokens are refreshed automatically when the cache expires or a `401` is returned.
-`SHOPIFY_STORE_DOMAIN` and `SHOPIFY_STOREFRONT_ACCESS_TOKEN` are required if you want the chatbot to answer product and collection questions.
+`STORE_SETTINGS_FILE` is where the app stores per-store merchant settings. In production, point it to a persistent disk path.
+`SETTINGS_ENCRYPTION_KEY` is strongly recommended in production so saved Shiprocket passwords and Storefront tokens are encrypted with your own key.
+`SHOPIFY_STORE_DOMAIN`, `SHOPIFY_STOREFRONT_ACCESS_TOKEN`, `SHIPROCKET_EMAIL`, and `SHIPROCKET_PASSWORD` act as fallback values if per-store settings have not been saved from the Shopify app page yet.
 The `STORE_*` variables are optional, but they make the chatbot much better at answering shipping, return, payment, cancellation, contact, and brand questions without an AI model.
 
 ## How To Run Locally
@@ -146,6 +159,12 @@ The `STORE_*` variables are optional, but they make the chatbot much better at a
    curl --request POST http://localhost:5050/api/chatbot \
      --header "Content-Type: application/json" \
      --data "{\"message\":\"Show me black hoodies under 2000\"}"
+   ```
+
+8. Open the Shopify app settings page locally:
+
+   ```text
+   http://localhost:5050/shopify/app-home?shop=your-store.myshopify.com
    ```
 
 ## API Contract
@@ -215,7 +234,7 @@ Or:
   "success": true,
   "source": "catalog",
   "intent": "product_lookup",
-  "reply": "I found 2 products for \"black hoodies\". Black Hoodie - ₹1,999 - In stock; Oversized Black Hoodie - ₹1,799 - In stock.",
+  "reply": "I found 2 products for \"black hoodies\". Black Hoodie - INR 1,999 - In stock; Oversized Black Hoodie - INR 1,799 - In stock.",
   "suggestions": [
     "Find products",
     "Browse collections",
@@ -254,16 +273,28 @@ This repository contains the backend plus a ready-to-deploy theme app extension 
 
 ### 1. Deploy the Node app
 
-Deploy this repository to Render or Railway first so Shopify can reach a public HTTPS URL.
+Deploy this repository to Render or Railway first so Shopify can reach a public HTTPS URL and persistent storage for merchant settings.
 
 After deployment, open:
 
 - `https://your-domain.com/shopify/app-home`
 - `https://your-domain.com/api/setup-status`
 
-These routes show the exact App URL, redirect URLs, app proxy values, and missing environment variables for the deployed domain.
+These routes show the exact App URL, redirect URLs, app proxy values, and current store settings status for the deployed domain.
 
-### 2. Configure the Shopify app proxy
+### 2. Install the app and save merchant settings
+
+Open the app from Shopify admin. The page at `/shopify/app-home` now includes a merchant settings form for:
+
+- Shiprocket email
+- Shiprocket password
+- Storefront access token
+- store name and support details
+- shipping, returns, payment, cancellation, and about text
+
+These saved values are used automatically by the storefront proxy routes and by direct API calls when you pass `shopDomain`.
+
+### 3. Configure the Shopify app proxy
 
 In your Shopify app settings, create an app proxy with:
 
@@ -279,7 +310,7 @@ The backend already exposes both:
 
 The proxy route verifies Shopify signatures when `SHOPIFY_API_SECRET` is set.
 
-### 3. Fill Shopify app settings
+### 4. Fill Shopify app settings
 
 In Shopify app setup, use the values shown on `/shopify/app-home`:
 
@@ -290,23 +321,21 @@ In Shopify app setup, use the values shown on `/shopify/app-home`:
 - App proxy subpath: `track-order`
 - App proxy URL: `https://your-domain.com/apps/track-order`
 
-Shiprocket credentials are **not** filled in Shopify app settings. Keep `SHIPROCKET_EMAIL` and `SHIPROCKET_PASSWORD` only in your backend environment variables.
-
 If you are using Shopify CLI for a separate app project, copy the sample in `shopify.app.toml.example` and replace the domain and API key with your real values.
 
-### 4. Create Storefront API token
+### 5. Create Storefront API token
 
 For product and collection answers, create a Storefront access token in Shopify and enable:
 
 - `unauthenticated_read_product_listings`
 - `unauthenticated_read_product_inventory`
 
-Then set these environment variables on your backend:
+Then either save the Storefront token inside the app page at `/shopify/app-home`, or set fallback environment variables on the backend:
 
 - `SHOPIFY_STORE_DOMAIN`
 - `SHOPIFY_STOREFRONT_ACCESS_TOKEN`
 
-### 5. Deploy the theme app extension
+### 6. Deploy the theme app extension
 
 The storefront widget lives in:
 
@@ -329,7 +358,7 @@ The widget now renders a floating storefront chatbot with:
 - quick action suggestions
 - pro chat styling with launcher, message bubbles, and tracking summary cards
 
-### 6. Local Shopify testing
+### 7. Local Shopify testing
 
 For local testing, run the Node server and expose it through a tunnel. Point the app proxy to the tunnel URL. In non-production mode, proxy signature validation is skipped if `SHOPIFY_API_SECRET` is not set.
 
@@ -375,6 +404,8 @@ Use `reply` as the message text inside your chatbot flow. The same endpoint also
    - Start command: `npm start`
 4. Add these environment variables in Render:
    - `NODE_ENV=production`
+   - `STORE_SETTINGS_FILE=/var/data/store-settings.json`
+   - `SETTINGS_ENCRYPTION_KEY`
    - `SHOPIFY_APP_NAME=Shopify Store Assistant App`
    - `SHOPIFY_APP_HANDLE=shopify-store-assistant-app`
    - `SHIPROCKET_EMAIL`
@@ -385,10 +416,11 @@ Use `reply` as the message text inside your chatbot flow. The same endpoint also
    - `SHOPIFY_STOREFRONT_API_VERSION=2025-07`
    - optional `STORE_*` variables for shipping, return, payment, cancellation, contact, and brand replies
    - `ALLOW_ORIGIN`
+5. Attach a persistent disk. The included `render.yaml` blueprint mounts `/var/data` and stores merchant settings there.
 
 ### Blueprint flow
 
-This repo already includes `render.yaml`. Render will provision the service with the correct build and start commands. You only need to fill in the secrets.
+This repo already includes `render.yaml`. Render will provision the service, mount a persistent disk, and use the correct build and start commands. You only need to fill in the secrets.
 
 ## Deploy On Railway
 
@@ -404,5 +436,6 @@ HTTP access logs and application logs are emitted as JSON, which makes them easy
 ## Notes
 
 - The Shiprocket token cache is in memory. This is fine for a single Node instance. If you scale horizontally, move the token cache to Redis.
+- Merchant settings are stored in the JSON file pointed to by `STORE_SETTINGS_FILE`. Use a persistent disk path in production.
 - The Shopify proxy route should be used from storefront themes. Tidio or other bots can call `/api/track-order` directly.
 - If Shiprocket returns an unexpected payload or becomes unavailable, the API returns a safe fallback message instead of leaking raw provider errors.

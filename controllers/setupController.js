@@ -1,3 +1,16 @@
+const {
+  buildRuntimeSettings,
+  getStoreSettings,
+  getStoreSettingsFilePath,
+} = require('../services/storeSettings');
+const {
+  createSettingsAccessToken,
+  getSettingsTokenSecret,
+  isValidShopDomain,
+  normalizeShopDomain,
+  verifyShopifyQueryHmac,
+} = require('../utils/shopify');
+
 function getBaseUrl(req) {
   const forwardedProto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https')
     .split(',')[0]
@@ -9,14 +22,27 @@ function getBaseUrl(req) {
   return `${forwardedProto || 'https'}://${forwardedHost}`;
 }
 
+function resolveShopContext(req) {
+  const requestedShop = normalizeShopDomain(req.query.shop || process.env.SHOPIFY_STORE_DOMAIN || '');
+  const secret = getSettingsTokenSecret();
+  const hasShop = isValidShopDomain(requestedShop);
+  const hasHmac = typeof req.query.hmac === 'string' && req.query.hmac.trim();
+  const hmacValid = hasHmac && secret ? verifyShopifyQueryHmac(req.query, secret) : false;
+  const localEditable = process.env.NODE_ENV !== 'production';
+  const canEdit = hasShop && (hmacValid || localEditable);
+
+  return {
+    shopDomain: hasShop ? requestedShop : null,
+    hmacValid,
+    canEdit,
+    settingsToken: canEdit ? createSettingsAccessToken({ shopDomain: requestedShop }) : null,
+  };
+}
+
 function buildSetupStatus(req) {
   const baseUrl = getBaseUrl(req);
   const appName = (process.env.SHOPIFY_APP_NAME || 'Shopify Store Assistant App').trim();
   const appHandle = (process.env.SHOPIFY_APP_HANDLE || 'shopify-store-assistant-app').trim();
-  const storeDomain = String(process.env.SHOPIFY_STORE_DOMAIN || '')
-    .trim()
-    .replace(/^https?:\/\//i, '')
-    .replace(/\/+$/, '');
   const applicationUrl = `${baseUrl}/shopify/app-home`;
   const redirectUrls = [`${baseUrl}/auth/callback`, `${baseUrl}/auth/oauth/callback`];
   const proxyBaseUrl = `${baseUrl}/apps/track-order`;
@@ -24,16 +50,21 @@ function buildSetupStatus(req) {
     'unauthenticated_read_product_listings',
     'unauthenticated_read_product_inventory',
   ];
+  const shopContext = resolveShopContext(req);
+  const savedSettings = shopContext.shopDomain ? getStoreSettings(shopContext.shopDomain) : null;
+  const runtime = shopContext.shopDomain ? buildRuntimeSettings(shopContext.shopDomain) : null;
   const envConfigured = {
-    shiprocket_email: Boolean((process.env.SHIPROCKET_EMAIL || '').trim()),
-    shiprocket_password: Boolean((process.env.SHIPROCKET_PASSWORD || '').trim()),
     shopify_api_secret: Boolean((process.env.SHOPIFY_API_SECRET || '').trim()),
-    shopify_store_domain: Boolean((process.env.SHOPIFY_STORE_DOMAIN || '').trim()),
-    shopify_storefront_access_token: Boolean(
+    settings_encryption_key: Boolean(
+      (process.env.SETTINGS_ENCRYPTION_KEY || process.env.SHOPIFY_API_SECRET || '').trim(),
+    ),
+    fallback_shiprocket_email: Boolean((process.env.SHIPROCKET_EMAIL || '').trim()),
+    fallback_shiprocket_password: Boolean((process.env.SHIPROCKET_PASSWORD || '').trim()),
+    fallback_shopify_store_domain: Boolean((process.env.SHOPIFY_STORE_DOMAIN || '').trim()),
+    fallback_storefront_access_token: Boolean(
       (process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || '').trim(),
     ),
   };
-  const missingEnv = Object.keys(envConfigured).filter((key) => !envConfigured[key]);
   const optionalSupportEnv = {
     store_name: Boolean((process.env.STORE_NAME || '').trim()),
     store_support_email: Boolean((process.env.STORE_SUPPORT_EMAIL || '').trim()),
@@ -70,9 +101,9 @@ function buildSetupStatus(req) {
       storefront_paths: ['/apps/track-order', '/apps/track-order/chat'],
     },
     storefront_api: {
-      shop_domain: storeDomain || null,
-      graphql_url: storeDomain
-        ? `https://${storeDomain}/api/${
+      shop_domain: runtime?.shopDomain || null,
+      graphql_url: runtime?.shopDomain
+        ? `https://${runtime.shopDomain}/api/${
             process.env.SHOPIFY_STOREFRONT_API_VERSION || '2025-07'
           }/graphql.json`
         : null,
@@ -87,221 +118,212 @@ function buildSetupStatus(req) {
       authenticated: ['write_app_proxy'],
       storefront: storefrontScopes,
     },
+    current_shop: {
+      shop_domain: shopContext.shopDomain,
+      can_edit_settings: shopContext.canEdit,
+      hmac_valid: shopContext.hmacValid,
+      has_saved_settings: Boolean(savedSettings),
+      updated_at: savedSettings?.updatedAt || null,
+    },
+    storage: {
+      file_path: getStoreSettingsFilePath(),
+    },
     notes: {
+      merchant_settings:
+        'Open this app from Shopify admin to save per-store Shiprocket and storefront settings.',
       shiprocket_credentials:
-        'Set SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD only on your backend host. Do not paste Shiprocket credentials into Shopify app dashboard fields.',
+        'Shiprocket API user credentials can now be saved per store from this app page. Fallback environment variables still work if per-store settings are empty.',
     },
     env: {
       configured: envConfigured,
-      missing: missingEnv,
       optional_support: optionalSupportEnv,
     },
   };
 }
 
-function renderBadge(value) {
-  return value
-    ? '<span style="color:#0f8a4b;font-weight:700;">Configured</span>'
-    : '<span style="color:#c5492f;font-weight:700;">Missing</span>';
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
-function serveShopifyAppHome(req, res) {
-  const status = buildSetupStatus(req);
-  const envRows = Object.entries(status.env.configured)
-    .map(
-      ([key, value]) =>
-        `<tr><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">${key}</td><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">${renderBadge(value)}</td></tr>`,
-    )
-    .join('');
-  const optionalSupportRows = Object.entries(status.env.optional_support)
-    .map(
-      ([key, value]) =>
-        `<tr><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">${key}</td><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">${renderBadge(value)}</td></tr>`,
-    )
-    .join('');
-  const storefrontScopes = status.scopes.storefront.join(', ');
-  const authenticatedScopes = status.scopes.authenticated.join(', ');
-  const missingEnv = status.env.missing.length
-    ? status.env.missing.join(', ')
-    : 'None';
+function serveShopifyAppHome(req, res, next) {
+  try {
+    const status = buildSetupStatus(req);
+    const shopContext = resolveShopContext(req);
+    const pageConfig = {
+      baseUrl: getBaseUrl(req),
+      shopDomain: shopContext.shopDomain,
+      canEdit: shopContext.canEdit,
+      hmacValid: shopContext.hmacValid,
+      settingsToken: shopContext.settingsToken,
+      endpoints: {
+        settings: '/api/store-settings',
+        setupStatus: '/api/setup-status',
+      },
+      status,
+    };
+    const serializedConfig = JSON.stringify(pageConfig).replace(/</g, '\\u003c');
 
-  res.type('html').send(`<!doctype html>
+    res.type('html').send(`<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${status.app.name}</title>
-    <style>
-      :root {
-        color-scheme: light;
-      }
-      body {
-        margin: 0;
-        font-family: "Segoe UI", Arial, sans-serif;
-        background: linear-gradient(180deg, #fffaf6 0%, #f2ece6 100%);
-        color: #1f2630;
-      }
-      .shell {
-        width: min(980px, calc(100% - 32px));
-        margin: 32px auto;
-      }
-      .card {
-        background: rgba(255,255,255,0.92);
-        border: 1px solid rgba(31,38,48,0.08);
-        border-radius: 24px;
-        box-shadow: 0 20px 44px rgba(21,31,43,0.08);
-        padding: 28px;
-      }
-      h1, h2 {
-        margin: 0 0 12px;
-      }
-      p {
-        margin: 0 0 12px;
-        line-height: 1.65;
-        color: #596676;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-        margin-top: 18px;
-      }
-      .value {
-        padding: 14px 16px;
-        border-radius: 18px;
-        background: #fff8f2;
-        border: 1px solid rgba(236,132,90,0.14);
-      }
-      .value strong {
-        display: block;
-        margin-bottom: 6px;
-        font-size: 12px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-      code, pre {
-        font-family: Consolas, "Courier New", monospace;
-      }
-      pre {
-        margin: 0;
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 12px;
-        background: #fff;
-        border-radius: 18px;
-        overflow: hidden;
-      }
-      .section {
-        margin-top: 22px;
-      }
-      @media (max-width: 720px) {
-        .grid {
-          grid-template-columns: 1fr;
-        }
-        .card {
-          padding: 20px;
-          border-radius: 20px;
-        }
-      }
-    </style>
+    <title>${escapeHtml(status.app.name)}</title>
+    <link rel="stylesheet" href="/public-assets/app-home.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="card">
-        <h1>${status.app.name}</h1>
-        <p>Use these values in Shopify app setup so the Shiprocket + storefront assistant works live.</p>
-
-        <div class="grid">
-          <div class="value">
-            <strong>Shopify App URL</strong>
-            <pre>${status.dashboard.app_url}</pre>
-          </div>
-          <div class="value">
-            <strong>Allowed Redirect URLs</strong>
-            <pre>${status.dashboard.allowed_redirection_urls.join('\n')}</pre>
-          </div>
-          <div class="value">
-            <strong>App Proxy</strong>
-            <pre>Prefix: ${status.app_proxy.prefix}
-Subpath: ${status.app_proxy.subpath}
-Proxy URL: ${status.app_proxy.proxy_url}
-Chat Proxy URL: ${status.app_proxy.chat_proxy_url}</pre>
-          </div>
-          <div class="value">
-            <strong>Storefront API</strong>
-            <pre>Shop Domain: ${status.storefront_api.shop_domain || 'Not set'}
-GraphQL URL: ${status.storefront_api.graphql_url || 'Not available until SHOPIFY_STORE_DOMAIN is set'}
-Required scopes: ${storefrontScopes}</pre>
-          </div>
+    <main class="app-home-shell">
+      <section class="app-home-hero">
+        <div>
+          <span class="app-home-kicker">Shopify app settings</span>
+          <h1>${escapeHtml(status.app.name)}</h1>
+          <p>Save Shiprocket, storefront, and support settings here so the assistant works store-by-store after app install.</p>
         </div>
-
-        <div class="section">
-          <h2>What To Fill In Shopify</h2>
-          <table>
-            <tbody>
-              <tr><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">App URL</td><td style="padding:10px 12px;border-bottom:1px solid #ece7df;"><code>${status.dashboard.app_url}</code></td></tr>
-              <tr><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">Allowed redirection URL 1</td><td style="padding:10px 12px;border-bottom:1px solid #ece7df;"><code>${status.dashboard.allowed_redirection_urls[0]}</code></td></tr>
-              <tr><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">Allowed redirection URL 2</td><td style="padding:10px 12px;border-bottom:1px solid #ece7df;"><code>${status.dashboard.allowed_redirection_urls[1]}</code></td></tr>
-              <tr><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">App proxy prefix</td><td style="padding:10px 12px;border-bottom:1px solid #ece7df;"><code>${status.app_proxy.prefix}</code></td></tr>
-              <tr><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">App proxy subpath</td><td style="padding:10px 12px;border-bottom:1px solid #ece7df;"><code>${status.app_proxy.subpath}</code></td></tr>
-              <tr><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">App proxy URL</td><td style="padding:10px 12px;border-bottom:1px solid #ece7df;"><code>${status.app_proxy.proxy_url}</code></td></tr>
-              <tr><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">Authenticated API scopes</td><td style="padding:10px 12px;border-bottom:1px solid #ece7df;"><code>${authenticatedScopes}</code></td></tr>
-              <tr><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">Storefront API scopes</td><td style="padding:10px 12px;border-bottom:1px solid #ece7df;"><code>${storefrontScopes}</code></td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="section">
-          <h2>Environment Status</h2>
-          <p>Missing variables: <code>${missingEnv}</code></p>
-          <table>
-            <tbody>
-              ${envRows}
-            </tbody>
-          </table>
-        </div>
-
-        <div class="section">
-          <h2>Theme Extension</h2>
-          <p>Deploy the extension from <code>${status.theme_extension.directory}</code>, then enable the app embed named <strong>${status.theme_extension.block_name}</strong> in the theme customizer.</p>
-        </div>
-
-        <div class="section">
-          <h2>Storefront Token Setup</h2>
-          <p>Create a Storefront access token in Shopify, then enable <code>${storefrontScopes}</code>. This lets the chatbot answer product, collection, price, and availability questions.</p>
-        </div>
-
-        <div class="section">
-          <h2>Optional Store Assistant Settings</h2>
-          <p>Fill these backend variables if you want the chatbot to answer shipping, return, payment, cancellation, contact, and brand questions more accurately.</p>
-          <table>
-            <tbody>
-              ${optionalSupportRows}
-            </tbody>
-          </table>
-        </div>
-
-        <div class="section">
-          <h2>Shiprocket Setup</h2>
-          <p>${status.notes.shiprocket_credentials}</p>
-        </div>
-
-        <div class="section">
-          <h2>API JSON</h2>
-          <p>Machine-readable setup values are available at <code>/api/setup-status</code>.</p>
+        <div class="app-home-hero-card">
+          <strong>Detected shop</strong>
+          <span>${escapeHtml(status.current_shop.shop_domain || 'Not detected')}</span>
+          <small>${status.current_shop.can_edit_settings ? 'Settings form is editable.' : 'Open this page from Shopify admin for editable access.'}</small>
         </div>
       </section>
+
+      <section class="app-home-grid">
+        <section class="app-home-panel">
+          <div class="app-home-panel-head">
+            <h2>Merchant Settings</h2>
+            <p>Per-store values override fallback environment variables.</p>
+          </div>
+          <div id="app-home-alert" class="app-home-alert" hidden></div>
+          <form id="app-home-settings-form" class="app-home-form">
+            <div class="app-home-form-grid">
+              <label>
+                <span>Shop domain</span>
+                <input id="shopDomain" name="shopDomain" type="text" placeholder="your-store.myshopify.com" />
+              </label>
+              <label>
+                <span>Shiprocket email</span>
+                <input id="shiprocketEmail" name="shiprocketEmail" type="email" placeholder="api-user@example.com" />
+              </label>
+              <label>
+                <span>Shiprocket password</span>
+                <input id="shiprocketPassword" name="shiprocketPassword" type="password" placeholder="Leave blank to keep saved value" />
+                <small id="shiprocketPasswordHint"></small>
+              </label>
+              <label>
+                <span>Storefront access token</span>
+                <input id="storefrontAccessToken" name="storefrontAccessToken" type="password" placeholder="Leave blank to keep saved value" />
+                <small id="storefrontTokenHint"></small>
+              </label>
+              <label>
+                <span>Store name</span>
+                <input id="storeName" name="storeName" type="text" />
+              </label>
+              <label>
+                <span>Support email</span>
+                <input id="supportEmail" name="supportEmail" type="email" />
+              </label>
+              <label>
+                <span>Support phone</span>
+                <input id="supportPhone" name="supportPhone" type="text" />
+              </label>
+              <label>
+                <span>Support WhatsApp</span>
+                <input id="supportWhatsapp" name="supportWhatsapp" type="text" />
+              </label>
+              <label>
+                <span>Support hours</span>
+                <input id="supportHours" name="supportHours" type="text" />
+              </label>
+              <label>
+                <span>Contact page URL</span>
+                <input id="contactUrl" name="contactUrl" type="url" />
+              </label>
+            </div>
+
+            <label>
+              <span>Shipping policy</span>
+              <textarea id="shippingPolicy" name="shippingPolicy" rows="3"></textarea>
+            </label>
+            <label>
+              <span>Return policy</span>
+              <textarea id="returnPolicy" name="returnPolicy" rows="3"></textarea>
+            </label>
+            <label>
+              <span>COD / payment policy</span>
+              <textarea id="codPolicy" name="codPolicy" rows="3"></textarea>
+            </label>
+            <label>
+              <span>Cancellation / order changes</span>
+              <textarea id="cancellationPolicy" name="cancellationPolicy" rows="3"></textarea>
+            </label>
+            <label>
+              <span>Order processing time</span>
+              <textarea id="orderProcessingTime" name="orderProcessingTime" rows="2"></textarea>
+            </label>
+            <label>
+              <span>About store</span>
+              <textarea id="aboutText" name="aboutText" rows="3"></textarea>
+            </label>
+
+            <div class="app-home-actions">
+              <button id="app-home-save-button" type="submit">Save settings</button>
+              <span id="app-home-meta" class="app-home-meta"></span>
+            </div>
+          </form>
+        </section>
+
+        <section class="app-home-stack">
+          <section class="app-home-panel">
+            <div class="app-home-panel-head">
+              <h2>Shopify Values</h2>
+              <p>Paste these in the Shopify app dashboard.</p>
+            </div>
+            <dl class="app-home-list">
+              <div><dt>App URL</dt><dd><code>${escapeHtml(status.dashboard.app_url)}</code></dd></div>
+              <div><dt>Redirect URL</dt><dd><code>${escapeHtml(status.dashboard.allowed_redirection_urls[0])}</code></dd></div>
+              <div><dt>Redirect URL</dt><dd><code>${escapeHtml(status.dashboard.allowed_redirection_urls[1])}</code></dd></div>
+              <div><dt>App proxy</dt><dd><code>${escapeHtml(status.app_proxy.proxy_url)}</code></dd></div>
+              <div><dt>Proxy prefix/subpath</dt><dd><code>${escapeHtml(status.app_proxy.prefix)} / ${escapeHtml(status.app_proxy.subpath)}</code></dd></div>
+              <div><dt>Storefront scopes</dt><dd><code>${escapeHtml(status.scopes.storefront.join(', '))}</code></dd></div>
+            </dl>
+          </section>
+
+          <section class="app-home-panel">
+            <div class="app-home-panel-head">
+              <h2>Runtime Status</h2>
+              <p>Current store and persistence details.</p>
+            </div>
+            <dl class="app-home-list">
+              <div><dt>Detected shop</dt><dd>${escapeHtml(status.current_shop.shop_domain || 'Not detected')}</dd></div>
+              <div><dt>Editable access</dt><dd>${status.current_shop.can_edit_settings ? 'Yes' : 'No'}</dd></div>
+              <div><dt>Saved settings</dt><dd>${status.current_shop.has_saved_settings ? 'Yes' : 'No'}</dd></div>
+              <div><dt>Last updated</dt><dd>${escapeHtml(status.current_shop.updated_at || 'Not saved yet')}</dd></div>
+              <div><dt>Settings file</dt><dd><code>${escapeHtml(status.storage.file_path)}</code></dd></div>
+            </dl>
+          </section>
+        </section>
+      </section>
     </main>
+
+    <script>window.__SHOPIFY_APP_HOME__ = ${serializedConfig};</script>
+    <script src="/public-assets/app-home.js" defer></script>
   </body>
 </html>`);
+  } catch (error) {
+    next(error);
+  }
 }
 
-function getSetupStatus(req, res) {
-  res.json(buildSetupStatus(req));
+function getSetupStatus(req, res, next) {
+  try {
+    res.json(buildSetupStatus(req));
+  } catch (error) {
+    next(error);
+  }
 }
 
 function serveAuthCallbackInfo(req, res) {
@@ -344,6 +366,7 @@ function serveAuthCallbackInfo(req, res) {
 }
 
 module.exports = {
+  buildSetupStatus,
   getSetupStatus,
   serveAuthCallbackInfo,
   serveShopifyAppHome,

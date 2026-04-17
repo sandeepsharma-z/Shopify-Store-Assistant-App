@@ -7,8 +7,12 @@ function errorHandler(error, req, res, next) {
   const isCorsError = error.message === 'Not allowed by CORS';
   const statusCode = isCorsError ? 403 : Number(error.statusCode || error.status || 500);
   const code = isCorsError ? 'CORS_NOT_ALLOWED' : error.code || 'INTERNAL_ERROR';
+  const isSettingsError =
+    code.startsWith('SETTINGS_') ||
+    code.startsWith('STORE_SETTINGS_') ||
+    code === 'INVALID_SHOP_DOMAIN';
   const reply =
-    statusCode >= 500
+    statusCode >= 500 && !isSettingsError
       ? FALLBACK_MESSAGE
       : isCorsError
         ? 'This origin is not allowed to call the tracking API.'

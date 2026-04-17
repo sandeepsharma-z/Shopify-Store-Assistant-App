@@ -5,9 +5,17 @@ services:
     buildCommand: npm install
     startCommand: npm start
     autoDeploy: true
+    disks:
+      - name: store-settings
+        mountPath: /var/data
+        sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
+      - key: STORE_SETTINGS_FILE
+        value: /var/data/store-settings.json
+      - key: SETTINGS_ENCRYPTION_KEY
+        sync: false
       - key: SHIPROCKET_EMAIL
         sync: false
       - key: SHIPROCKET_PASSWORD

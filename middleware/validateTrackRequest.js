@@ -7,11 +7,25 @@ function getNormalizedValue(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function getShopDomainValue(payload) {
+  const candidates = [payload.shopDomain, payload.shop_domain, payload.shop];
+
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return '';
+}
+
 function createTrackRequestValidator({ source = 'body' } = {}) {
   return (req, res, next) => {
     const payload = source === 'query' ? req.query : req.body || {};
     const awb = getNormalizedValue(payload.awb);
     const orderId = getNormalizedValue(payload.order_id || payload.orderId);
+    const fallbackShopDomain =
+      source === 'query' ? '' : getShopDomainValue(req.query || {});
 
     if ((awb && orderId) || (!awb && !orderId)) {
       next(
@@ -39,6 +53,7 @@ function createTrackRequestValidator({ source = 'body' } = {}) {
     req.trackingLookup = {
       awb: awb || null,
       orderId: orderId || null,
+      shopDomain: getShopDomainValue(payload) || fallbackShopDomain,
     };
 
     next();
