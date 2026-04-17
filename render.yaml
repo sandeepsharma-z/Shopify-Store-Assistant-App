@@ -24,5 +24,29 @@ services:
         value: Shopify Store Assistant App
       - key: SHOPIFY_APP_HANDLE
         value: shopify-store-assistant-app
+      - key: STORE_NAME
+        sync: false
+      - key: STORE_SUPPORT_EMAIL
+        sync: false
+      - key: STORE_SUPPORT_PHONE
+        sync: false
+      - key: STORE_SUPPORT_WHATSAPP
+        sync: false
+      - key: STORE_SUPPORT_HOURS
+        sync: false
+      - key: STORE_SHIPPING_POLICY
+        sync: false
+      - key: STORE_RETURN_POLICY
+        sync: false
+      - key: STORE_COD_POLICY
+        sync: false
+      - key: STORE_CANCELLATION_POLICY
+        sync: false
+      - key: STORE_ORDER_PROCESSING_TIME
+        sync: false
+      - key: STORE_CONTACT_URL
+        sync: false
+      - key: STORE_ABOUT_TEXT
+        sync: false
       - key: ALLOW_ORIGIN
         sync: false

@@ -9,10 +9,55 @@ function normalizeStatus(rawStatus) {
 
   const cleaned = String(rawStatus).replace(/_/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 
+  if (cleaned.includes('pick up scan') || cleaned.includes('pickup scan')) {
+    return 'picked up';
+  }
+
+  if (cleaned.includes('p/u shipment') || cleaned.includes('out to p/u') || cleaned.includes('out to pickup')) {
+    return 'pickup scheduled';
+  }
+
+  if (cleaned.includes('out for delivery') || cleaned === 'ofd') {
+    return 'out for delivery';
+  }
+
+  if (cleaned.includes('return delivered') || cleaned.includes('rto delivered')) {
+    return 'return delivered';
+  }
+
+  if (cleaned.includes('return in transit') || cleaned.includes('rto in transit')) {
+    return 'return in transit';
+  }
+
+  if (cleaned.includes('delivered')) {
+    return 'delivered';
+  }
+
+  if (cleaned.includes('manifest')) {
+    return 'manifest generated';
+  }
+
+  if (cleaned.includes('shipment booked')) {
+    return 'shipment booked';
+  }
+
+  if (cleaned.includes('pickup scheduled')) {
+    return 'pickup scheduled';
+  }
+
+  if (cleaned.includes('cancel')) {
+    return 'cancelled';
+  }
+
+  if (cleaned.includes('transit')) {
+    return 'in transit';
+  }
+
   const statusMap = {
     ofd: 'out for delivery',
     delivered: 'delivered',
     'pickup scheduled': 'pickup scheduled',
+    'picked up': 'picked up',
     'shipment booked': 'shipment booked',
     'manifest generated': 'manifest generated',
     'in transit': 'in transit',
@@ -70,8 +115,27 @@ function formatHumanDateTime(rawDate) {
   }).format(date);
 }
 
+function getStatusExplanation(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  const explanationMap = {
+    'shipment booked': 'The shipment has been created in the courier system.',
+    'manifest generated': 'Shipping paperwork has been generated for the parcel.',
+    'pickup scheduled': 'Pickup has been scheduled with the courier.',
+    'picked up': 'The courier has collected your parcel from the seller.',
+    'in transit': 'The parcel is moving through the courier network.',
+    'out for delivery': 'The parcel should reach the delivery address soon.',
+    delivered: 'The shipment has reached the customer.',
+    cancelled: 'The shipment has been cancelled in the system.',
+    'return in transit': 'The parcel is moving back to the origin address.',
+    'return delivered': 'The returned parcel has reached the origin address.',
+  };
+
+  return explanationMap[normalized] || null;
+}
+
 function buildReply({ status, lastLocation, expectedDelivery, courierName, lastUpdateAt }) {
   let reply;
+  const statusExplanation = getStatusExplanation(status);
 
   if (status === 'delivered') {
     reply = 'Your order has been delivered.';
@@ -81,6 +145,10 @@ function buildReply({ status, lastLocation, expectedDelivery, courierName, lastU
     reply = 'This order has been cancelled.';
   } else {
     reply = `Your order is currently ${status}.`;
+  }
+
+  if (statusExplanation) {
+    reply += ` ${statusExplanation}`;
   }
 
   if (lastLocation) {
@@ -106,6 +174,7 @@ module.exports = {
   buildReply,
   formatHumanDate,
   formatHumanDateTime,
+  getStatusExplanation,
   normalizeLocation,
   normalizeStatus,
 };

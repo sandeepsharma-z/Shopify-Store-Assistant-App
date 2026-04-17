@@ -1,18 +1,18 @@
 (function bootstrapOrderAssistant() {
   const rootSelector = '.shiprocket-order-tracker-root';
-  const sessionKeyPrefix = 'shiprocket-order-assistant:v5:';
+  const sessionKeyPrefix = 'shiprocket-order-assistant:v6:';
   const maxStoredMessages = 30;
   const defaultSuggestions = [
     'Track my order',
     'Find products',
     'Browse collections',
-    'Check availability',
+    'Shipping policy',
   ];
   const starterPrompts = [
     'Track my order',
     'Find products',
     'Browse collections',
-    'Check availability',
+    'Shipping policy',
   ];
 
   function parseJsonSafe(response) {
@@ -152,6 +152,20 @@
     return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
+  function truncateText(value, maxLength) {
+    if (!value) {
+      return '';
+    }
+
+    const text = String(value).trim();
+
+    if (text.length <= maxLength) {
+      return text;
+    }
+
+    return text.slice(0, maxLength - 1).trim() + '\u2026';
+  }
+
   function renderTrackingCard(payload) {
     if (!payload || !payload.tracking) {
       return null;
@@ -257,6 +271,193 @@
     return card;
   }
 
+  function createMetaPill(text, modifierClass) {
+    const pill = createElement(
+      'span',
+      'shiprocket-chat-catalog-pill' + (modifierClass ? ' ' + modifierClass : ''),
+      text,
+    );
+    return pill;
+  }
+
+  function renderProductItem(item) {
+    const card = createElement('article', 'shiprocket-chat-catalog-item');
+    const top = createElement('div', 'shiprocket-chat-catalog-item-top');
+    const title = createElement('strong', 'shiprocket-chat-catalog-item-title', item.title || 'Product');
+    const price = createElement('span', 'shiprocket-chat-catalog-item-price', item.price || '');
+    const meta = createElement('div', 'shiprocket-chat-catalog-item-meta');
+    const footer = createElement('div', 'shiprocket-chat-catalog-item-footer');
+
+    top.appendChild(title);
+
+    if (price.textContent) {
+      top.appendChild(price);
+    }
+
+    meta.appendChild(
+      createMetaPill(item.available ? 'In stock' : 'Out of stock', item.available ? 'is-success' : 'is-muted'),
+    );
+
+    if (item.vendor) {
+      meta.appendChild(createMetaPill(item.vendor));
+    }
+
+    if (item.productType) {
+      meta.appendChild(createMetaPill(item.productType));
+    }
+
+    if (item.compare_at_price && item.compare_at_price !== item.price) {
+      meta.appendChild(createMetaPill('Sale'));
+    }
+
+    card.appendChild(top);
+    card.appendChild(meta);
+
+    if (item.description) {
+      card.appendChild(
+        createElement(
+          'p',
+          'shiprocket-chat-catalog-item-copy',
+          truncateText(item.description, 120),
+        ),
+      );
+    }
+
+    if (item.url) {
+      const link = createElement('a', 'shiprocket-chat-catalog-item-link', 'View product');
+      link.href = item.url;
+      link.target = '_blank';
+      link.rel = 'noreferrer noopener';
+      footer.appendChild(link);
+      card.appendChild(footer);
+    }
+
+    return card;
+  }
+
+  function renderCollectionItem(item) {
+    const card = createElement('article', 'shiprocket-chat-catalog-item');
+    const top = createElement('div', 'shiprocket-chat-catalog-item-top');
+    const title = createElement(
+      'strong',
+      'shiprocket-chat-catalog-item-title',
+      item.title || 'Collection',
+    );
+    const meta = createElement('div', 'shiprocket-chat-catalog-item-meta');
+
+    top.appendChild(title);
+    card.appendChild(top);
+
+    if (item.products && item.products.length) {
+      meta.appendChild(createMetaPill(item.products.length + ' sample products'));
+    }
+
+    card.appendChild(meta);
+
+    if (item.description) {
+      card.appendChild(
+        createElement(
+          'p',
+          'shiprocket-chat-catalog-item-copy',
+          truncateText(item.description, 120),
+        ),
+      );
+    }
+
+    if (item.products && item.products.length) {
+      card.appendChild(
+        createElement(
+          'p',
+          'shiprocket-chat-catalog-item-copy',
+          'Includes: ' +
+            item.products
+              .slice(0, 3)
+              .map(function mapProduct(product) {
+                return product.title;
+              })
+              .filter(Boolean)
+              .join(', '),
+        ),
+      );
+    }
+
+    if (item.url) {
+      const link = createElement('a', 'shiprocket-chat-catalog-item-link', 'Open collection');
+      link.href = item.url;
+      link.target = '_blank';
+      link.rel = 'noreferrer noopener';
+      card.appendChild(link);
+    }
+
+    return card;
+  }
+
+  function renderOverviewBlock(catalog) {
+    const wrapper = createElement('div', 'shiprocket-chat-catalog-card');
+    const title = createElement('strong', 'shiprocket-chat-catalog-title', 'Store overview');
+    const grid = createElement('div', 'shiprocket-chat-catalog-grid');
+
+    wrapper.appendChild(title);
+
+    if (catalog.shop && (catalog.shop.name || catalog.shop.url)) {
+      const summary = createElement(
+        'p',
+        'shiprocket-chat-catalog-summary',
+        catalog.shop.name || catalog.shop.url,
+      );
+      wrapper.appendChild(summary);
+    }
+
+    (catalog.products || []).slice(0, 2).forEach(function each(item) {
+      grid.appendChild(renderProductItem(item));
+    });
+
+    (catalog.collections || []).slice(0, 2).forEach(function each(item) {
+      grid.appendChild(renderCollectionItem(item));
+    });
+
+    if (grid.childNodes.length) {
+      wrapper.appendChild(grid);
+    }
+
+    return wrapper;
+  }
+
+  function renderCatalogCard(payload) {
+    if (!payload || !payload.catalog) {
+      return null;
+    }
+
+    const catalog = payload.catalog;
+
+    if (catalog.type === 'overview') {
+      return renderOverviewBlock(catalog);
+    }
+
+    if (!Array.isArray(catalog.items) || !catalog.items.length) {
+      return null;
+    }
+
+    const wrapper = createElement('div', 'shiprocket-chat-catalog-card');
+    const titleText = catalog.type === 'collections' ? 'Collections' : 'Products';
+    const title = createElement('strong', 'shiprocket-chat-catalog-title', titleText);
+    const grid = createElement('div', 'shiprocket-chat-catalog-grid');
+
+    wrapper.appendChild(title);
+
+    catalog.items.slice(0, 4).forEach(function each(item) {
+      if (catalog.type === 'collections') {
+        grid.appendChild(renderCollectionItem(item));
+        return;
+      }
+
+      grid.appendChild(renderProductItem(item));
+    });
+
+    wrapper.appendChild(grid);
+    return wrapper;
+  }
+
   function createMessageNode(entry, options) {
     const message = createElement(
       'div',
@@ -289,9 +490,14 @@
 
     if (entry.role === 'assistant' && !(options && options.deferTrackingCard)) {
       const card = renderTrackingCard(entry.payload);
+      const catalogCard = renderCatalogCard(entry.payload);
 
       if (card) {
         bubble.appendChild(card);
+      }
+
+      if (catalogCard) {
+        bubble.appendChild(catalogCard);
       }
     }
 
@@ -348,9 +554,14 @@
     }
 
     const trackingCard = renderTrackingCard(payload);
+    const catalogCard = renderCatalogCard(payload);
 
     if (trackingCard) {
       nodes.bubble.appendChild(trackingCard);
+    }
+
+    if (catalogCard) {
+      nodes.bubble.appendChild(catalogCard);
     }
 
     scrollToBottom(container);
@@ -394,9 +605,10 @@
     const heading = root.dataset.heading || 'Store assistant';
     const description =
       root.dataset.description ||
-      'Ask about products, collections, price, stock availability, or enter AWB / order ID for tracking.';
+      'Ask about products, collections, prices, availability, shipping, returns, or enter AWB / order ID for live tracking.';
     const launcherLabel = root.dataset.launcherLabel || 'Chat with us';
-    const placeholder = root.dataset.placeholder || 'Ask products, collections, or enter AWB / Order ID';
+    const placeholder =
+      root.dataset.placeholder || 'Ask products, collections, shipping, or enter AWB / Order ID';
     const buttonLabel = root.dataset.buttonLabel || 'Send';
     const proxyPath = root.dataset.proxyPath || '/apps/track-order/chat';
     const autoOpen = root.dataset.autoOpen === 'true';
@@ -455,7 +667,7 @@
 
     const body = createElement('div', 'shiprocket-chat-body');
     const intro = createElement('div', 'shiprocket-chat-intro');
-    const introBadge = createElement('span', 'shiprocket-chat-intro-badge', 'Products + tracking');
+    const introBadge = createElement('span', 'shiprocket-chat-intro-badge', 'Store + tracking');
     const introCopy = createElement(
       'p',
       'shiprocket-chat-intro-copy',

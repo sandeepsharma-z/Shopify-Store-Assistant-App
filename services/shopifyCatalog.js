@@ -16,6 +16,14 @@ const CATALOG_QUERY = `
     $productQuery: String
     $collectionQuery: String
   ) {
+    shop {
+      name
+      description
+      primaryDomain {
+        host
+        url
+      }
+    }
     products(first: $productFirst, query: $productQuery) {
       edges {
         node {
@@ -98,7 +106,7 @@ const DEFAULT_CATALOG_SUGGESTIONS = [
   'Find products',
   'Browse collections',
   'Track my order',
-  'Order ID status',
+  'Shipping policy',
 ];
 
 const PRODUCT_HINTS = [
@@ -120,9 +128,39 @@ const PRODUCT_HINTS = [
   'show',
   'find',
   'search',
+  'new arrival',
+  'new arrivals',
+  'latest',
+  'bestseller',
+  'best seller',
+  'popular',
+  'recommend',
 ];
 
-const COLLECTION_HINTS = ['collection', 'collections', 'category', 'categories'];
+const COLLECTION_HINTS = ['collection', 'collections', 'category', 'categories', 'range', 'ranges'];
+const OVERVIEW_HINTS = [
+  'what do you sell',
+  'what do you have',
+  'show all',
+  'browse all',
+  'catalog',
+  'shop all',
+  'all products',
+  'all collections',
+  'store overview',
+];
+const RECOMMENDATION_HINTS = [
+  'recommend',
+  'suggest',
+  'best seller',
+  'bestseller',
+  'popular',
+  'trending',
+  'top products',
+  'featured',
+  'latest',
+  'new arrivals',
+];
 
 const FILLER_PATTERNS = [
   /\bdo you have\b/gi,
@@ -138,13 +176,14 @@ const FILLER_PATTERNS = [
   /\bi want\b/gi,
   /\bi need\b/gi,
   /\bcan you\b/gi,
-  /\bwhat is\b/gi,
-  /\bwhat are\b/gi,
+  /\bplease\b/gi,
   /\bproducts?\b/gi,
   /\bitems?\b/gi,
   /\bcollections?\b/gi,
   /\bcategories?\b/gi,
   /\bcategory\b/gi,
+  /\brange\b/gi,
+  /\branges\b/gi,
   /\bprice\b/gi,
   /\bcost\b/gi,
   /\bavailable\b/gi,
@@ -153,7 +192,13 @@ const FILLER_PATTERNS = [
   /\bout of stock\b/gi,
   /\bshop\b/gi,
   /\bstore\b/gi,
-  /\bplease\b/gi,
+  /\brecommend\b/gi,
+  /\bsuggest\b/gi,
+  /\bfeatured\b/gi,
+  /\bpopular\b/gi,
+  /\bbest seller\b/gi,
+  /\bnew arrivals?\b/gi,
+  /\blatest\b/gi,
 ];
 
 function getStorefrontConfig(preferredShopDomain) {
@@ -254,6 +299,21 @@ function buildCollectionUrl(shopDomain, handle, onlineStoreUrl) {
   return `https://${shopDomain}/collections/${handle}`;
 }
 
+function buildProductPriceLabel(minPrice, maxPrice) {
+  const minimum = formatMoney(minPrice);
+  const maximum = formatMoney(maxPrice);
+
+  if (!minimum) {
+    return null;
+  }
+
+  if (minimum === maximum || !maximum) {
+    return minimum;
+  }
+
+  return `${minimum} - ${maximum}`;
+}
+
 function normalizeProduct(node, shopDomain) {
   if (!node || typeof node !== 'object') {
     return null;
@@ -276,9 +336,8 @@ function normalizeProduct(node, shopDomain) {
     productType: firstText(node.productType),
     description: stripHtml(node.description),
     image_url: firstText(node.featuredImage?.url),
-    price: formatMoney(minPrice),
+    price: buildProductPriceLabel(minPrice, maxPrice),
     price_amount: Number(minPrice?.amount || 0),
-    price_max: formatMoney(maxPrice),
     compare_at_price: formatMoney(compareAtPrice),
     collections: collectionTitles,
   };
@@ -302,6 +361,19 @@ function normalizeCollection(node, shopDomain) {
   };
 }
 
+function normalizeShop(node) {
+  if (!node || typeof node !== 'object') {
+    return null;
+  }
+
+  return {
+    name: firstText(node.name),
+    description: stripHtml(node.description),
+    url: firstText(node.primaryDomain?.url),
+    host: firstText(node.primaryDomain?.host),
+  };
+}
+
 function includesAny(text, patterns) {
   return patterns.some((pattern) => text.includes(pattern));
 }
@@ -314,10 +386,10 @@ function parseNumberFromMatch(matchValue) {
 
 function extractPriceFilters(message) {
   const maxMatch = message.match(
-    /\b(?:under|below|less than|up to|upto|max(?:imum)?)\s*(?:rs\.?|inr|₹|\$)?\s*([0-9][0-9,\.]*)/i,
+    /\b(?:under|below|less than|up to|upto|max(?:imum)?)\s*(?:rs\.?|inr|₹|\$)?\s*([0-9][0-9,.]*)/i,
   );
   const minMatch = message.match(
-    /\b(?:over|above|more than|min(?:imum)?)\s*(?:rs\.?|inr|₹|\$)?\s*([0-9][0-9,\.]*)/i,
+    /\b(?:over|above|more than|min(?:imum)?)\s*(?:rs\.?|inr|₹|\$)?\s*([0-9][0-9,.]*)/i,
   );
 
   return {
@@ -335,30 +407,44 @@ function cleanCatalogTerm(message) {
 
   cleaned = cleaned
     .replace(
-      /\b(?:under|below|less than|up to|upto|max(?:imum)?|over|above|more than|min(?:imum)?)\s*(?:rs\.?|inr|₹|\$)?\s*[0-9][0-9,\.]*/gi,
+      /\b(?:under|below|less than|up to|upto|max(?:imum)?|over|above|more than|min(?:imum)?)\s*(?:rs\.?|inr|₹|\$)?\s*[0-9][0-9,.]*/gi,
       ' ',
     )
     .replace(/[^a-z0-9\s'/-]/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
-  return cleaned || null;
+  if (!cleaned) {
+    return null;
+  }
+
+  if (cleaned.length <= 2) {
+    return null;
+  }
+
+  return cleaned;
 }
 
 function analyzeCatalogMessage(message) {
   const normalized = String(message || '').trim();
   const lowered = normalized.toLowerCase();
   const wantsCollections = includesAny(lowered, COLLECTION_HINTS);
-  const wantsProducts = includesAny(lowered, PRODUCT_HINTS) || !wantsCollections;
+  const wantsRecommendations = includesAny(lowered, RECOMMENDATION_HINTS);
+  const wantsStoreOverview =
+    includesAny(lowered, OVERVIEW_HINTS) ||
+    /\b(all products|all collections|catalog|browse store)\b/.test(lowered);
   const wantsAvailability = /\b(?:available|availability|in stock|out of stock|stock)\b/i.test(
     normalized,
   );
   const wantsPrice = /\b(?:price|cost|under|below|over|above|more than|less than)\b/i.test(
     normalized,
   );
-  const wantsOverview =
-    /\b(?:show all|list|browse|catalog|shop all|what do you have)\b/i.test(normalized) ||
-    normalized.length <= 20;
+  const wantsProducts =
+    includesAny(lowered, PRODUCT_HINTS) ||
+    wantsRecommendations ||
+    wantsStoreOverview ||
+    !wantsCollections;
+  const wantsOverview = wantsStoreOverview || normalized.length <= 16;
   const searchTerm = cleanCatalogTerm(normalized);
   const priceFilters = extractPriceFilters(normalized);
 
@@ -369,6 +455,8 @@ function analyzeCatalogMessage(message) {
     wantsAvailability,
     wantsPrice,
     wantsOverview,
+    wantsRecommendations,
+    wantsStoreOverview,
     searchTerm,
     ...priceFilters,
   };
@@ -406,6 +494,7 @@ async function storefrontQuery(config, variables) {
     }
 
     const payload = response.data?.data || {
+      shop: null,
       products: { edges: [] },
       collections: { edges: [] },
     };
@@ -422,25 +511,104 @@ async function storefrontQuery(config, variables) {
   }
 }
 
-function filterProducts(products, request) {
-  return products.filter((product) => {
-    if (request.wantsAvailability && !product.available) {
+function dedupeByKey(items, keyBuilder) {
+  const seen = new Set();
+
+  return items.filter((item) => {
+    const key = keyBuilder(item);
+
+    if (!key || seen.has(key)) {
       return false;
     }
 
-    if (request.priceMax !== null && product.price_amount > request.priceMax) {
-      return false;
-    }
-
-    if (request.priceMin !== null && product.price_amount < request.priceMin) {
-      return false;
-    }
-
+    seen.add(key);
     return true;
   });
 }
 
-function buildProductReply(products, request) {
+function filterProducts(products, request) {
+  return dedupeByKey(products, (product) => product.url || product.handle || product.title).filter(
+    (product) => {
+      if (request.wantsAvailability && !product.available) {
+        return false;
+      }
+
+      if (request.priceMax !== null && product.price_amount > request.priceMax) {
+        return false;
+      }
+
+      if (request.priceMin !== null && product.price_amount < request.priceMin) {
+        return false;
+      }
+
+      return true;
+    },
+  );
+}
+
+function filterCollections(collections) {
+  return dedupeByKey(
+    collections,
+    (collection) => collection.url || collection.handle || collection.title,
+  );
+}
+
+function buildCatalogEnvelope(type, request, shop, items, extra = {}) {
+  return {
+    type,
+    query: request.searchTerm,
+    shop,
+    items,
+    ...extra,
+  };
+}
+
+function buildOverviewReply(shop, products, collections, request) {
+  const collectionSummary = collections
+    .slice(0, 3)
+    .map((collection) => collection.title)
+    .filter(Boolean);
+  const productSummary = products
+    .slice(0, 3)
+    .map((product) => {
+      const price = product.price ? ` (${product.price})` : '';
+      return `${product.title}${price}`;
+    })
+    .filter(Boolean);
+  const parts = [];
+
+  if (shop?.name) {
+    parts.push(`${shop.name} store overview.`);
+  } else {
+    parts.push('Store overview.');
+  }
+
+  if (shop?.description) {
+    parts.push(shop.description);
+  }
+
+  if (collectionSummary.length) {
+    parts.push(`Collections: ${collectionSummary.join(', ')}.`);
+  }
+
+  if (productSummary.length) {
+    parts.push(`Featured products: ${productSummary.join('; ')}.`);
+  }
+
+  return {
+    success: true,
+    source: 'catalog',
+    intent: 'store_overview',
+    reply: parts.join(' '),
+    suggestions: DEFAULT_CATALOG_SUGGESTIONS,
+    catalog: buildCatalogEnvelope('overview', request, shop, [], {
+      products: products.slice(0, 4),
+      collections: collections.slice(0, 4),
+    }),
+  };
+}
+
+function buildProductReply(products, request, shop) {
   if (!products.length) {
     return null;
   }
@@ -453,10 +621,26 @@ function buildProductReply(products, request) {
       details.push(`Price: ${product.price}`);
     }
 
+    if (product.compare_at_price && product.compare_at_price !== product.price) {
+      details.push(`Compare at: ${product.compare_at_price}`);
+    }
+
     details.push(product.available ? 'Status: In stock' : 'Status: Out of stock');
+
+    if (product.vendor) {
+      details.push(`Brand: ${product.vendor}`);
+    }
+
+    if (product.productType) {
+      details.push(`Type: ${product.productType}`);
+    }
 
     if (product.collections.length) {
       details.push(`Collections: ${product.collections.slice(0, 2).join(', ')}`);
+    }
+
+    if (product.description) {
+      details.push(`About: ${product.description.slice(0, 140)}${product.description.length > 140 ? '...' : ''}`);
     }
 
     return {
@@ -465,16 +649,12 @@ function buildProductReply(products, request) {
       intent: 'product_lookup',
       reply: `I found ${product.title}. ${details.join('. ')}.`,
       suggestions: DEFAULT_CATALOG_SUGGESTIONS,
-      catalog: {
-        type: 'products',
-        query: request.searchTerm,
-        items: [product],
-      },
+      catalog: buildCatalogEnvelope('products', request, shop, [product]),
     };
   }
 
   const summary = products
-    .slice(0, 3)
+    .slice(0, 4)
     .map((product) => {
       const price = product.price ? ` - ${product.price}` : '';
       const stock = product.available ? ' - In stock' : ' - Out of stock';
@@ -482,22 +662,21 @@ function buildProductReply(products, request) {
     })
     .join('; ');
   const label = request.searchTerm ? ` for "${request.searchTerm}"` : '';
+  const intro = request.wantsRecommendations
+    ? `I found ${products.length} recommended products${label}.`
+    : `I found ${products.length} products${label}.`;
 
   return {
     success: true,
     source: 'catalog',
-    intent: 'product_lookup',
-    reply: `I found ${products.length} products${label}. ${summary}.`,
+    intent: request.wantsRecommendations ? 'product_recommendations' : 'product_lookup',
+    reply: `${intro} ${summary}.`,
     suggestions: DEFAULT_CATALOG_SUGGESTIONS,
-    catalog: {
-      type: 'products',
-      query: request.searchTerm,
-      items: products.slice(0, 4),
-    },
+    catalog: buildCatalogEnvelope('products', request, shop, products.slice(0, 4)),
   };
 }
 
-function buildCollectionReply(collections, request) {
+function buildCollectionReply(collections, request, shop) {
   if (!collections.length) {
     return null;
   }
@@ -525,23 +704,20 @@ function buildCollectionReply(collections, request) {
     intent: 'collection_lookup',
     reply: `I found ${collections.length} collections${label}. ${summary}.`,
     suggestions: DEFAULT_CATALOG_SUGGESTIONS,
-    catalog: {
-      type: 'collections',
-      query: request.searchTerm,
-      items: collections.slice(0, 4),
-    },
+    catalog: buildCatalogEnvelope('collections', request, shop, collections.slice(0, 4)),
   };
 }
 
-function buildNoResultsReply(request) {
+function buildNoResultsReply(request, shop) {
   const termLabel = request.searchTerm ? `"${request.searchTerm}"` : 'that';
 
   return {
     success: true,
     source: 'catalog',
     intent: 'catalog_no_results',
-    reply: `I could not find products or collections for ${termLabel}. Try a different keyword, AWB number, or order ID.`,
+    reply: `I could not find products or collections for ${termLabel}. Try a different keyword, browse collections, or share an AWB number for tracking.`,
     suggestions: DEFAULT_CATALOG_SUGGESTIONS,
+    catalog: buildCatalogEnvelope('empty', request, shop, []),
   };
 }
 
@@ -561,30 +737,45 @@ async function createCatalogReply({ message, shopDomain }) {
 
   const request = analyzeCatalogMessage(message);
   const payload = await storefrontQuery(config, {
-    productFirst: 6,
-    collectionFirst: 4,
+    productFirst: 8,
+    collectionFirst: 6,
     productQuery: request.searchTerm,
     collectionQuery: request.searchTerm,
   });
+  const shop = normalizeShop(payload.shop);
   const products = filterProducts(
     (payload.products?.edges || [])
       .map((edge) => normalizeProduct(edge?.node, config.shopDomain))
       .filter(Boolean),
     request,
   );
-  const collections = (payload.collections?.edges || [])
-    .map((edge) => normalizeCollection(edge?.node, config.shopDomain))
-    .filter(Boolean);
+  const collections = filterCollections(
+    (payload.collections?.edges || [])
+      .map((edge) => normalizeCollection(edge?.node, config.shopDomain))
+      .filter(Boolean),
+  );
+
+  if (request.wantsStoreOverview || (!request.searchTerm && request.wantsOverview)) {
+    return buildOverviewReply(shop, products, collections, request);
+  }
 
   if (request.wantsCollections && !request.wantsProducts) {
-    return buildCollectionReply(collections, request) || buildNoResultsReply(request);
+    return buildCollectionReply(collections, request, shop) || buildNoResultsReply(request, shop);
   }
 
   if (request.wantsCollections && collections.length && !products.length) {
-    return buildCollectionReply(collections, request);
+    return buildCollectionReply(collections, request, shop);
   }
 
-  return buildProductReply(products, request) || buildCollectionReply(collections, request) || buildNoResultsReply(request);
+  if (request.wantsRecommendations && products.length) {
+    return buildProductReply(products, request, shop);
+  }
+
+  return (
+    buildProductReply(products, request, shop) ||
+    buildCollectionReply(collections, request, shop) ||
+    buildNoResultsReply(request, shop)
+  );
 }
 
 module.exports = {

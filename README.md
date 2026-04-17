@@ -11,6 +11,7 @@ Production-ready Node.js + Express backend for Shopify order tracking with Shipr
 - Shiprocket authentication with in-memory token caching
 - Tracking lookup through Shiprocket AWB and order endpoints
 - Shopify Storefront API lookup for products and collections
+- Config-driven support answers for shipping, returns, payments, cancellation, and contact details
 - Clean customer-facing reply text with status, last location, and expected delivery
 - Input validation, CORS, Helmet, and structured logging
 - Shopify app proxy route at `/apps/track-order`
@@ -48,7 +49,8 @@ Production-ready Node.js + Express backend for Shopify order tracking with Shipr
 |-- services/
 |   |-- chatAssistant.js
 |   |-- shiprocket.js
-|   `-- shopifyCatalog.js
+|   |-- shopifyCatalog.js
+|   `-- storeSupport.js
 |-- utils/
 |   |-- httpError.js
 |   |-- logger.js
@@ -82,10 +84,23 @@ SHOPIFY_STOREFRONT_ACCESS_TOKEN=your-storefront-access-token
 SHOPIFY_STOREFRONT_API_VERSION=2025-07
 SHOPIFY_STOREFRONT_TIMEOUT_MS=15000
 SHOPIFY_CATALOG_CACHE_TTL_MS=300000
+STORE_NAME=your-store-name
+STORE_SUPPORT_EMAIL=support@example.com
+STORE_SUPPORT_PHONE=+91XXXXXXXXXX
+STORE_SUPPORT_WHATSAPP=+91XXXXXXXXXX
+STORE_SUPPORT_HOURS=Mon-Sat, 10 AM to 7 PM
+STORE_SHIPPING_POLICY=Orders usually dispatch within 24 to 48 hours.
+STORE_RETURN_POLICY=Returns are accepted within 7 days for unused items.
+STORE_COD_POLICY=Cash on delivery is available on eligible pincodes.
+STORE_CANCELLATION_POLICY=Orders can be cancelled before dispatch.
+STORE_ORDER_PROCESSING_TIME=Processing time is 1 business day.
+STORE_CONTACT_URL=https://your-store.myshopify.com/pages/contact
+STORE_ABOUT_TEXT=We offer curated products with fast shipping and support.
 ```
 
 `SHIPROCKET_TOKEN_TTL_MS` defaults to 10 days so the app does not log in on every request. Shiprocket tokens are refreshed automatically when the cache expires or a `401` is returned.
 `SHOPIFY_STORE_DOMAIN` and `SHOPIFY_STOREFRONT_ACCESS_TOKEN` are required if you want the chatbot to answer product and collection questions.
+The `STORE_*` variables are optional, but they make the chatbot much better at answering shipping, return, payment, cancellation, contact, and brand questions without an AI model.
 
 ## How To Run Locally
 
@@ -368,6 +383,7 @@ Use `reply` as the message text inside your chatbot flow. The same endpoint also
    - `SHOPIFY_STORE_DOMAIN`
    - `SHOPIFY_STOREFRONT_ACCESS_TOKEN`
    - `SHOPIFY_STOREFRONT_API_VERSION=2025-07`
+   - optional `STORE_*` variables for shipping, return, payment, cancellation, contact, and brand replies
    - `ALLOW_ORIGIN`
 
 ### Blueprint flow

@@ -1,5 +1,6 @@
 const { fetchTracking } = require('./shiprocket');
 const { DEFAULT_CATALOG_SUGGESTIONS, createCatalogReply } = require('./shopifyCatalog');
+const { createSupportReply } = require('./storeSupport');
 
 function normalizeMessage(message) {
   return String(message || '').trim();
@@ -101,24 +102,6 @@ function isLikelyTrackingMessage(message) {
   ].some((keyword) => text.includes(keyword));
 }
 
-function isUnsupportedSupportQuestion(message) {
-  const text = toComparableText(message);
-
-  return [
-    'return',
-    'refund',
-    'cancel',
-    'cancellation',
-    'address',
-    'payment',
-    'cod',
-    'exchange',
-    'policy',
-    'support',
-    'damaged',
-  ].some((keyword) => text.includes(keyword));
-}
-
 async function tryTrackingCandidates(candidates) {
   let lastError = null;
 
@@ -145,7 +128,7 @@ async function tryTrackingCandidates(candidates) {
 function buildTrackingSuggestions(status) {
   switch (status) {
     case 'delivered':
-      return ['Track another order', 'Find products', 'Browse collections', 'Check AWB status'];
+      return ['Track another order', 'Find products', 'Browse collections', 'Shipping policy'];
     case 'out for delivery':
       return ['Track another order', 'Order ID status', 'Find products', 'Browse collections'];
     default:
@@ -168,7 +151,7 @@ async function handleTrackingConversation(message) {
         intent: 'tracking',
         reply:
           'Send your AWB number or order ID and I will check the latest shipment status for you. Example: AWB 123456789 or Order ID 100001.',
-        suggestions: ['Track my order', 'Check AWB status', 'Order ID status', 'Find products'],
+        suggestions: ['Track my order', 'Check AWB status', 'Order ID status', 'Browse collections'],
       });
     }
 
@@ -204,7 +187,7 @@ async function handleTrackingConversation(message) {
         source: 'tracking',
         intent: 'tracking',
         reply: 'I could not find that shipment. Please recheck the AWB number or order ID and try again.',
-        suggestions: ['Track my order', 'Check AWB status', 'Order ID status', 'Find products'],
+        suggestions: ['Track my order', 'Check AWB status', 'Order ID status', 'Browse collections'],
       });
     }
 
@@ -233,7 +216,7 @@ async function handleTrackingConversation(message) {
         source: 'tracking',
         intent: 'tracking',
         reply: 'I could not find that shipment. Please recheck the AWB number or order ID and try again.',
-        suggestions: ['Track my order', 'Check AWB status', 'Order ID status', 'Find products'],
+        suggestions: ['Track my order', 'Check AWB status', 'Order ID status', 'Browse collections'],
       });
     }
 
@@ -242,7 +225,7 @@ async function handleTrackingConversation(message) {
       source: 'tracking',
       intent: 'tracking',
       reply: "I couldn't fetch a live courier update right now. Please try again in a few minutes.",
-      suggestions: ['Track my order', 'Check AWB status', 'Order ID status', 'Find products'],
+      suggestions: ['Track my order', 'Check AWB status', 'Order ID status', 'Shipping policy'],
     });
   }
 }
@@ -261,7 +244,7 @@ async function createChatReply({ message, shopDomain }) {
       source: 'faq',
       intent: 'greeting',
       reply:
-        'Hi there. I can help with live order tracking, product search, collection discovery, price checks, and stock availability. Send your AWB number, order ID, product keyword, or collection name.',
+        'Hi there. I can help with live order tracking, product search, collection discovery, price checks, stock availability, shipping questions, returns, payments, and store contact details. Send your AWB number, order ID, product keyword, or question directly.',
     });
   }
 
@@ -270,23 +253,47 @@ async function createChatReply({ message, shopDomain }) {
       source: 'faq',
       intent: 'thanks',
       reply:
-        'Happy to help. Send another AWB number, order ID, product keyword, or collection name whenever you need.',
+        'Happy to help. Send another AWB number, order ID, product keyword, collection name, or support question whenever you need.',
     });
   }
 
-  if (isUnsupportedSupportQuestion(message)) {
-    return buildResponse({
-      source: 'faq',
-      intent: 'unsupported_support',
-      reply:
-        'This chatbot currently focuses on live tracking plus Shopify products and collections. Send an AWB number, order ID, product keyword, or collection name.',
-    });
-  }
-
-  const catalogReply = await createCatalogReply({
+  const supportReply = createSupportReply({
     message,
     shopDomain,
   });
+
+  if (supportReply) {
+    return buildResponse(supportReply);
+  }
+
+  let catalogReply;
+
+  try {
+    catalogReply = await createCatalogReply({
+      message,
+      shopDomain,
+    });
+  } catch (error) {
+    return buildResponse({
+      success: false,
+      source: 'catalog',
+      intent: 'catalog_lookup_failed',
+      reply:
+        'I could not load the store catalog right now. Please try again in a moment, or send an AWB number for live tracking.',
+      suggestions: ['Track my order', 'Browse collections', 'Find products', 'Shipping policy'],
+    });
+  }
+
+  if (catalogReply.intent === 'catalog_not_configured') {
+    return buildResponse({
+      success: true,
+      source: 'faq',
+      intent: 'assistant_fallback',
+      reply:
+        'I can help with live shipment tracking right now. For products and collections, connect SHOPIFY_STORE_DOMAIN and SHOPIFY_STOREFRONT_ACCESS_TOKEN on the backend. You can also ask about shipping, returns, payments, and support details.',
+      suggestions: ['Track my order', 'Check AWB status', 'Shipping policy', 'Contact support'],
+    });
+  }
 
   return buildResponse(catalogReply);
 }

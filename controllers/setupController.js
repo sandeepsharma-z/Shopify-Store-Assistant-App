@@ -34,6 +34,20 @@ function buildSetupStatus(req) {
     ),
   };
   const missingEnv = Object.keys(envConfigured).filter((key) => !envConfigured[key]);
+  const optionalSupportEnv = {
+    store_name: Boolean((process.env.STORE_NAME || '').trim()),
+    store_support_email: Boolean((process.env.STORE_SUPPORT_EMAIL || '').trim()),
+    store_support_phone: Boolean((process.env.STORE_SUPPORT_PHONE || '').trim()),
+    store_support_whatsapp: Boolean((process.env.STORE_SUPPORT_WHATSAPP || '').trim()),
+    store_support_hours: Boolean((process.env.STORE_SUPPORT_HOURS || '').trim()),
+    store_shipping_policy: Boolean((process.env.STORE_SHIPPING_POLICY || '').trim()),
+    store_return_policy: Boolean((process.env.STORE_RETURN_POLICY || '').trim()),
+    store_cod_policy: Boolean((process.env.STORE_COD_POLICY || '').trim()),
+    store_cancellation_policy: Boolean((process.env.STORE_CANCELLATION_POLICY || '').trim()),
+    store_order_processing_time: Boolean((process.env.STORE_ORDER_PROCESSING_TIME || '').trim()),
+    store_contact_url: Boolean((process.env.STORE_CONTACT_URL || '').trim()),
+    store_about_text: Boolean((process.env.STORE_ABOUT_TEXT || '').trim()),
+  };
 
   return {
     success: true,
@@ -80,6 +94,7 @@ function buildSetupStatus(req) {
     env: {
       configured: envConfigured,
       missing: missingEnv,
+      optional_support: optionalSupportEnv,
     },
   };
 }
@@ -93,6 +108,12 @@ function renderBadge(value) {
 function serveShopifyAppHome(req, res) {
   const status = buildSetupStatus(req);
   const envRows = Object.entries(status.env.configured)
+    .map(
+      ([key, value]) =>
+        `<tr><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">${key}</td><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">${renderBadge(value)}</td></tr>`,
+    )
+    .join('');
+  const optionalSupportRows = Object.entries(status.env.optional_support)
     .map(
       ([key, value]) =>
         `<tr><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">${key}</td><td style="padding:10px 12px;border-bottom:1px solid #ece7df;">${renderBadge(value)}</td></tr>`,
@@ -252,6 +273,16 @@ Required scopes: ${storefrontScopes}</pre>
         <div class="section">
           <h2>Storefront Token Setup</h2>
           <p>Create a Storefront access token in Shopify, then enable <code>${storefrontScopes}</code>. This lets the chatbot answer product, collection, price, and availability questions.</p>
+        </div>
+
+        <div class="section">
+          <h2>Optional Store Assistant Settings</h2>
+          <p>Fill these backend variables if you want the chatbot to answer shipping, return, payment, cancellation, contact, and brand questions more accurately.</p>
+          <table>
+            <tbody>
+              ${optionalSupportRows}
+            </tbody>
+          </table>
         </div>
 
         <div class="section">
