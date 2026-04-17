@@ -422,147 +422,229 @@
 
 .shiprocket-chat-tracking-card {
   margin-top: 14px;
-  padding: 15px;
-  border-radius: 22px;
-  background: linear-gradient(180deg, #fff9f3 0%, #fff4eb 100%);
-  border: 1px solid rgba(233, 208, 188, 0.72);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    0 10px 22px rgba(31, 38, 48, 0.04);
+  padding: 18px 16px 14px;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid rgba(208, 216, 226, 0.9);
+  box-shadow: 0 14px 34px rgba(31, 38, 48, 0.05);
 }
 
-.shiprocket-chat-tracking-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.shiprocket-chat-tracking-status {
-  display: inline-flex;
-  align-items: center;
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #fff4eb 0%, #ffeadd 100%);
-  color: #ba5a2d;
-  border: 1px solid rgba(236, 132, 90, 0.12);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-}
-
-.shiprocket-chat-tracking-ref {
-  color: #5c6877;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-left: auto;
-}
-
-.shiprocket-chat-tracking-line {
-  margin: 10px 0 0;
-  color: var(--shiprocket-text);
-  font-size: 13px;
-  line-height: 1.55;
-  overflow-wrap: anywhere;
-}
-
-.shiprocket-chat-tracking-details {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  align-items: stretch;
-}
-
-.shiprocket-chat-tracking-detail {
-  min-width: 0;
-  min-height: 88px;
-  padding: 14px 13px 13px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(217, 224, 232, 0.84);
-  box-shadow: 0 2px 6px rgba(31, 38, 48, 0.03);
-}
-
-.shiprocket-chat-tracking-detail-label {
-  display: block;
-  color: #627083;
-  font-size: 11px;
-  line-height: 1.15;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.shiprocket-chat-tracking-detail-value {
-  display: block;
-  margin-top: 10px;
-  color: var(--shiprocket-text);
-  font-size: 15px;
-  line-height: 1.35;
-  font-weight: 800;
-  overflow-wrap: anywhere;
-}
-
-.shiprocket-chat-tracking-updates {
-  margin-top: 16px;
-}
-
-.shiprocket-chat-tracking-updates-title {
-  display: block;
-  color: var(--shiprocket-text);
-  font-size: 13px;
-  line-height: 1.3;
-  font-weight: 800;
-}
-
-.shiprocket-chat-tracking-update-list {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.shiprocket-chat-tracking-update-item {
-  padding: 14px 14px 12px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(217, 224, 232, 0.84);
-  box-shadow: 0 2px 6px rgba(31, 38, 48, 0.03);
-}
-
-.shiprocket-chat-tracking-update-top {
+.shiprocket-chat-tracking-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 16px;
+}
+
+.shiprocket-chat-tracking-brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
   gap: 14px;
 }
 
-.shiprocket-chat-tracking-update-status {
-  color: var(--shiprocket-text);
-  font-size: 14px;
-  line-height: 1.35;
+.shiprocket-chat-tracking-badge {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #0f4f93 0%, #0a3d74 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.shiprocket-chat-tracking-badge-line {
+  display: block;
+  color: #ffffff;
+  line-height: 1;
   font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.shiprocket-chat-tracking-update-date {
-  color: #627083;
+.shiprocket-chat-tracking-badge-line.is-primary {
+  font-size: 10px;
+}
+
+.shiprocket-chat-tracking-badge-line.is-secondary {
+  margin-top: 4px;
+  font-size: 10px;
+}
+
+.shiprocket-chat-tracking-brand-copy {
+  min-width: 0;
+}
+
+.shiprocket-chat-tracking-courier {
+  display: block;
+  color: #121d2c;
+  font-size: 28px;
+  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.shiprocket-chat-tracking-courier-meta {
+  display: block;
+  margin-top: 6px;
+  color: #5d6b7b;
   font-size: 12px;
-  line-height: 1.35;
-  text-align: right;
-  flex: 0 0 auto;
+  line-height: 1.4;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
-.shiprocket-chat-tracking-update-location {
-  margin: 8px 0 0;
-  color: #36465b;
+.shiprocket-chat-tracking-head-meta {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.shiprocket-chat-tracking-head-label {
+  color: #1a2430;
   font-size: 13px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.shiprocket-chat-tracking-head-value {
+  color: #1358d8;
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 800;
+  word-break: break-word;
+}
+
+.shiprocket-chat-tracking-submeta {
+  margin: 14px 0 0;
+  color: #5a6878;
+  font-size: 12px;
+  line-height: 1.55;
+  font-weight: 600;
+}
+
+.shiprocket-chat-tracking-timeline {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.shiprocket-chat-tracking-timeline-item {
+  display: grid;
+  grid-template-columns: 74px 22px minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.shiprocket-chat-tracking-timeline-item + .shiprocket-chat-tracking-timeline-item {
+  margin-top: 2px;
+}
+
+.shiprocket-chat-tracking-timeline-stamp {
+  padding-top: 8px;
+}
+
+.shiprocket-chat-tracking-date {
+  display: block;
+  color: #1a2430;
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.shiprocket-chat-tracking-time {
+  display: block;
+  margin-top: 8px;
+  color: #1a2430;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.shiprocket-chat-tracking-rail {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.shiprocket-chat-tracking-rail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(205, 213, 222, 0.05) 0,
+      rgba(205, 213, 222, 0.9) 12px,
+      rgba(205, 213, 222, 0.9) calc(100% - 12px),
+      rgba(205, 213, 222, 0.05) 100%
+    );
+}
+
+.shiprocket-chat-tracking-dot {
+  position: relative;
+  z-index: 1;
+  width: 18px;
+  height: 18px;
+  margin-top: 18px;
+  border-radius: 50%;
+  background: #b6bcc5;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(182, 188, 197, 0.8);
+}
+
+.shiprocket-chat-tracking-timeline-item.is-current .shiprocket-chat-tracking-dot {
+  background: #20da44;
+  box-shadow: 0 0 0 1px rgba(32, 218, 68, 0.26);
+}
+
+.shiprocket-chat-tracking-content {
+  min-width: 0;
+  padding: 10px 0 18px;
+  border-top: 1px solid rgba(210, 217, 226, 0.9);
+}
+
+.shiprocket-chat-tracking-timeline-item:first-child .shiprocket-chat-tracking-content {
+  border-top: 0;
+  padding-top: 8px;
+}
+
+.shiprocket-chat-tracking-activity,
+.shiprocket-chat-tracking-location {
+  margin: 0;
+  color: #1a2430;
+  font-size: 14px;
   line-height: 1.45;
+}
+
+.shiprocket-chat-tracking-location {
+  margin-top: 10px;
+}
+
+.shiprocket-chat-tracking-field-label {
+  color: #101925;
+  font-weight: 700;
+}
+
+.shiprocket-chat-tracking-field-value {
+  margin-left: 4px;
+  color: #2a3441;
+  font-weight: 700;
+  text-transform: uppercase;
   overflow-wrap: anywhere;
 }
 
@@ -570,7 +652,7 @@
   display: inline-flex;
   align-items: center;
   margin-top: 14px;
-  color: #c85f2d;
+  color: #1358d8;
   font-size: 13px;
   line-height: 1.3;
   font-weight: 800;
@@ -916,43 +998,60 @@
     max-width: min(88%, 280px);
   }
 
-  .shiprocket-chat-tracking-details {
-    gap: 10px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .shiprocket-chat-tracking-card {
     padding: 14px;
   }
 
-  .shiprocket-chat-tracking-detail {
-    min-height: 82px;
-    padding: 12px 11px;
+  .shiprocket-chat-tracking-head {
+    flex-direction: column;
+    gap: 14px;
   }
 
-  .shiprocket-chat-tracking-detail-label {
-    font-size: 10px;
+  .shiprocket-chat-tracking-brand {
+    gap: 12px;
   }
 
-  .shiprocket-chat-tracking-detail-value {
-    margin-top: 8px;
-    font-size: 13px;
-    line-height: 1.3;
+  .shiprocket-chat-tracking-badge {
+    width: 60px;
+    height: 60px;
+    flex-basis: 60px;
   }
 
-  .shiprocket-chat-tracking-update-item {
-    padding: 12px 12px 11px;
+  .shiprocket-chat-tracking-courier {
+    font-size: 22px;
   }
 
-  .shiprocket-chat-tracking-update-top {
+  .shiprocket-chat-tracking-head-meta {
+    align-items: flex-start;
+    padding-top: 0;
+  }
+
+  .shiprocket-chat-tracking-timeline-item {
+    grid-template-columns: 62px 18px minmax(0, 1fr);
     gap: 10px;
   }
 
-  .shiprocket-chat-tracking-update-status {
-    font-size: 13px;
+  .shiprocket-chat-tracking-date {
+    font-size: 14px;
   }
 
-  .shiprocket-chat-tracking-update-date {
+  .shiprocket-chat-tracking-time {
+    margin-top: 6px;
     font-size: 11px;
+  }
+
+  .shiprocket-chat-tracking-dot {
+    width: 16px;
+    height: 16px;
+    margin-top: 16px;
+  }
+
+  .shiprocket-chat-tracking-content {
+    padding-bottom: 16px;
+  }
+
+  .shiprocket-chat-tracking-activity,
+  .shiprocket-chat-tracking-location {
+    font-size: 13px;
   }
 }

@@ -211,12 +211,14 @@ function buildRecentUpdates(activities) {
 
   return activities
     .map((activity) => ({
+      raw_status: activity.status || null,
       status:
         activity.normalized_status &&
         !['na', 'n a', 'null', 'undefined'].includes(activity.normalized_status)
           ? activity.normalized_status
           : null,
       location: activity.normalized_location || null,
+      raw_date: activity.date || null,
       date: activity.formatted_date || activity.date || null,
     }))
     .filter((activity) => {
@@ -237,7 +239,7 @@ function buildRecentUpdates(activities) {
       seen.add(signature);
       return true;
     })
-    .slice(0, 4);
+    .slice(0, 6);
 }
 
 function extractTrackingSummary(payload, lookup = {}) {
