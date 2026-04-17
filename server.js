@@ -20,11 +20,23 @@ const allowedOrigins = (process.env.ALLOW_ORIGIN || '')
   .filter(Boolean);
 
 app.disable('x-powered-by');
+
 app.use(
   helmet({
     crossOriginResourcePolicy: false,
+    contentSecurityPolicy: false,
+    frameguard: false,
   }),
 );
+
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    'frame-ancestors https://admin.shopify.com https://*.myshopify.com;'
+  );
+  next();
+});
+
 app.use(
   cors({
     origin(origin, callback) {
@@ -42,6 +54,7 @@ app.use(
     },
   }),
 );
+
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined', { stream: logger.stream }));
@@ -74,9 +87,11 @@ app.get('/', (req, res) => {
 
   res.json(getServiceInfo());
 });
+
 app.get('/preview', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'preview.html'));
 });
+
 app.get('/service-info', (req, res) => {
   res.json(getServiceInfo());
 });
