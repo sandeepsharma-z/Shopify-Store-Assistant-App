@@ -289,6 +289,14 @@
     return text.slice(0, maxLength - 1).trim() + '\u2026';
   }
 
+  function toTitleWords(value) {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/\b\w/g, function each(character) {
+        return character.toUpperCase();
+      });
+  }
+
   function getCourierBadgeLines(courierName) {
     const cleanedName = String(courierName || 'Tracking')
       .replace(/[^a-z0-9 ]/gi, ' ')
@@ -315,7 +323,7 @@
 
   function formatTimelineActivity(value) {
     if (!value) {
-      return 'SHIPMENT UPDATE';
+      return 'Shipment Update';
     }
 
     let text = String(value).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
@@ -327,15 +335,15 @@
       text = 'Shipment ' + text;
     }
 
-    return text.toUpperCase();
+    return toTitleWords(text);
   }
 
   function formatTimelineLocation(value) {
     if (!value) {
-      return 'LOCATION NOT AVAILABLE';
+      return 'Location not available';
     }
 
-    return String(value).replace(/\s+/g, ' ').trim().toUpperCase();
+    return toTitleWords(String(value).replace(/\s+/g, ' ').trim());
   }
 
   function getTimelineStamp(rawValue) {
