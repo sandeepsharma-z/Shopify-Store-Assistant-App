@@ -3,10 +3,10 @@
   const sessionKeyPrefix = 'shiprocket-order-assistant:v8:';
   const maxStoredMessages = 30;
   const defaultSuggestions = [
-    'Track my order',
-    'Find products',
-    'Browse collections',
-    'Shipping policy',
+    'Track Your Order',
+    'Refund Policy',
+    'Privacy Policy',
+    'Returns & Exchange',
   ];
   const launcherHighlights = [
     'Track orders instantly',
@@ -15,10 +15,11 @@
     'Get live delivery updates',
   ];
   const starterPrompts = [
-    'Track my order',
-    'Find products',
-    'Browse collections',
-    'Shipping policy',
+    'Track Your Order',
+    'Privacy Policy',
+    'Refund Policy',
+    'Terms of Service',
+    'Returns & Exchange',
   ];
 
   function parseJsonSafe(response) {

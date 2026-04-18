@@ -48,6 +48,12 @@ function applyStoreDefaults(config, shopDomain) {
     cancellationPolicy:
       config.cancellationPolicy ||
       'If you need to change or cancel an order, contact support as early as possible before shipment processing starts.',
+    privacyPolicy:
+      config.privacyPolicy ||
+      'Customer information is collected and used to process orders, improve the shopping experience, and provide support. Personal details are handled according to the store privacy practices.',
+    termsOfService:
+      config.termsOfService ||
+      'By using the store, customers agree to the website terms, checkout terms, and order policies published by the store. Order acceptance, payment, and service availability remain subject to store policies.',
   };
 }
 
@@ -67,6 +73,8 @@ function getSupportConfig(shopDomain) {
     aboutText: runtime.aboutText,
     contactUrl: runtime.contactUrl,
     storeUrl: buildStoreUrl(runtime.shopDomain),
+    privacyPolicy: runtime.privacyPolicy,
+    termsOfService: runtime.termsOfService,
   };
 
   return applyStoreDefaults(baseConfig, runtime.shopDomain);
@@ -120,6 +128,16 @@ function joinReplyParts(parts) {
   return parts.filter(Boolean).join(' ');
 }
 
+function resolveReturnsLabel(message) {
+  const text = toComparableText(message);
+
+  if (text.includes('refund')) {
+    return 'Refund Policy';
+  }
+
+  return 'Returns & Exchange';
+}
+
 function detectSupportIntent(message) {
   const text = toComparableText(message);
 
@@ -139,6 +157,18 @@ function detectSupportIntent(message) {
     )
   ) {
     return 'contact';
+  }
+
+  if (
+    /\b(privacy|privacy policy|data policy|data privacy)\b/.test(text)
+  ) {
+    return 'privacy';
+  }
+
+  if (
+    /\b(terms|terms of service|terms of use|store terms)\b/.test(text)
+  ) {
+    return 'terms';
   }
 
   if (
@@ -187,7 +217,7 @@ function createSupportReply({ message, shopDomain }) {
     ? ` ${contactDetails.join('. ')}.`
     : '';
   const storeReference = buildStoreReference(config);
-  const suggestions = ['Find products', 'Browse collections', 'Track my order', 'Order help'];
+  const suggestions = ['Track Your Order', 'Refund Policy', 'Privacy Policy', 'Returns & Exchange'];
 
   if (intent === 'help') {
     return {
@@ -211,7 +241,27 @@ function createSupportReply({ message, shopDomain }) {
             `You can use this assistant for products, collections, and live shipment tracking.`,
             storeReference,
           ]),
-      suggestions: ['Track my order', 'Find products', 'Browse collections', 'Shipping policy'],
+      suggestions: ['Track Your Order', 'Refund Policy', 'Privacy Policy', 'Returns & Exchange'],
+    };
+  }
+
+  if (intent === 'privacy') {
+    return {
+      success: true,
+      source: 'support',
+      intent,
+      reply: `Privacy Policy: ${withTrailingPeriod(config.privacyPolicy)}${contactText}`,
+      suggestions: ['Terms of Service', 'Refund Policy', 'Returns & Exchange', 'Track Your Order'],
+    };
+  }
+
+  if (intent === 'terms') {
+    return {
+      success: true,
+      source: 'support',
+      intent,
+      reply: `Terms of Service: ${withTrailingPeriod(config.termsOfService)}${contactText}`,
+      suggestions: ['Privacy Policy', 'Refund Policy', 'Returns & Exchange', 'Track Your Order'],
     };
   }
 
@@ -225,31 +275,33 @@ function createSupportReply({ message, shopDomain }) {
       source: 'support',
       intent,
       reply: shippingDetails
-        ? `Shipping details: ${withTrailingPeriod(shippingDetails)} For a live shipment update, send your AWB number or order ID.${contactText}`
+        ? `Track Your Order: ${withTrailingPeriod(shippingDetails)} For a live shipment update, send your AWB number or order ID.${contactText}`
         : joinReplyParts([
             'For a live delivery update, send your AWB number or order ID.',
             'General shipping timelines depend on the order, serviceability, and courier partner.',
             storeReference,
             contactText.trim(),
           ]),
-      suggestions: ['Track my order', 'Check AWB status', 'Find products', 'Browse collections'],
+      suggestions: ['Track Your Order', 'Refund Policy', 'Privacy Policy', 'Returns & Exchange'],
     };
   }
 
   if (intent === 'returns') {
+    const returnsLabel = resolveReturnsLabel(message);
+
     return {
       success: true,
       source: 'support',
       intent,
       reply: config.returnPolicy
-        ? `Return and refund details: ${withTrailingPeriod(config.returnPolicy)}${contactText}`
+        ? `${returnsLabel}: ${withTrailingPeriod(config.returnPolicy)}${contactText}`
         : joinReplyParts([
             'Return and refund details are not available in the assistant right now.',
             'Please check the store policy page or contact support for the latest terms.',
             storeReference,
             contactText.trim(),
           ]),
-      suggestions: ['Track my order', 'Find products', 'Browse collections', 'Contact support'],
+      suggestions: ['Refund Policy', 'Privacy Policy', 'Terms of Service', 'Track Your Order'],
     };
   }
 
@@ -266,7 +318,7 @@ function createSupportReply({ message, shopDomain }) {
             storeReference,
             contactText.trim(),
           ]),
-      suggestions: ['Find products', 'Browse collections', 'Track my order', 'Contact support'],
+      suggestions: ['Track Your Order', 'Refund Policy', 'Privacy Policy', 'Terms of Service'],
     };
   }
 
@@ -283,7 +335,7 @@ function createSupportReply({ message, shopDomain }) {
             storeReference,
             contactText.trim(),
           ]),
-      suggestions: ['Track my order', 'Order ID status', 'Contact support', 'Find products'],
+      suggestions: ['Track Your Order', 'Refund Policy', 'Privacy Policy', 'Terms of Service'],
     };
   }
 
