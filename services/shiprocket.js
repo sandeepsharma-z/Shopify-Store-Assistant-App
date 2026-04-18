@@ -176,6 +176,8 @@ function extractOrderId(payload) {
     root.order_id,
     root.channel_order_id,
     root.channel_order_no,
+    root?.shipment_track?.[0]?.order_id ? String(root.shipment_track[0].order_id) : null,
+    root?.shipments?.order_id ? String(root.shipments.order_id) : null,
     payload?.order_id,
     payload?.channel_order_id,
   ]);
@@ -238,8 +240,76 @@ function buildRecentUpdates(activities) {
 
       seen.add(signature);
       return true;
-    })
-    .slice(0, 6);
+    });
+}
+
+function sortUpdatesByDateDesc(left, right) {
+  const leftTimestamp = Date.parse(left.raw_date || left.date || '');
+  const rightTimestamp = Date.parse(right.raw_date || right.date || '');
+
+  if (Number.isNaN(leftTimestamp) && Number.isNaN(rightTimestamp)) {
+    return 0;
+  }
+
+  if (Number.isNaN(leftTimestamp)) {
+    return 1;
+  }
+
+  if (Number.isNaN(rightTimestamp)) {
+    return -1;
+  }
+
+  return rightTimestamp - leftTimestamp;
+}
+
+function appendOrderReceivedUpdate(summary, orderPayload) {
+  if (!summary || !Array.isArray(summary.recent_updates)) {
+    return summary;
+  }
+
+  const root = orderPayload?.data || orderPayload || {};
+  const rawDate = firstNonEmptyString([
+    root.channel_created_at,
+    root.created_at,
+    root.order_date,
+    root?.shipments?.created_at,
+    root?.shipments?.awb_assign_date,
+  ]);
+
+  if (!rawDate) {
+    return summary;
+  }
+
+  const location = normalizeLocation(
+    firstNonEmptyString([
+      root.customer_city,
+      root.delivery_city,
+      root?.shipments?.destination,
+      root.billing_city,
+    ]),
+  );
+  const update = {
+    raw_status: 'ORDER RECEIVED',
+    status: 'order received',
+    location,
+    raw_date: rawDate,
+    date: formatHumanDateTime(rawDate) || formatHumanDate(rawDate) || rawDate,
+  };
+  const signature = `${update.status}|${update.location || ''}|${update.date || ''}`.toLowerCase();
+  const seen = new Set(
+    summary.recent_updates.map((item) =>
+      `${item.status || ''}|${item.location || ''}|${item.date || ''}`.toLowerCase(),
+    ),
+  );
+
+  if (seen.has(signature)) {
+    return summary;
+  }
+
+  return {
+    ...summary,
+    recent_updates: [...summary.recent_updates, update].sort(sortUpdatesByDateDesc),
+  };
 }
 
 function extractTrackingSummary(payload, lookup = {}) {
@@ -460,7 +530,7 @@ async function fetchByAwb(awb, shopDomain) {
       method: 'GET',
       url: `/courier/track/awb/${encodeURIComponent(awb)}`,
     }, { shopDomain });
-    const summary = extractTrackingSummary(response.data, { awb });
+    let summary = extractTrackingSummary(response.data, { awb });
 
     if (!summary.hasEvidence) {
       throw new HttpError(
@@ -468,6 +538,19 @@ async function fetchByAwb(awb, shopDomain) {
         'Invalid AWB number. Please check and try again.',
         'INVALID_AWB',
       );
+    }
+
+    if (summary.order_id) {
+      try {
+        const orderPayload = await fetchOrderDetails(summary.order_id, shopDomain);
+        summary = appendOrderReceivedUpdate(summary, orderPayload);
+      } catch (orderError) {
+        logger.warn('Failed to enrich AWB tracking with order history', {
+          awb,
+          orderId: summary.order_id,
+          message: orderError.message,
+        });
+      }
     }
 
     delete summary.hasEvidence;
