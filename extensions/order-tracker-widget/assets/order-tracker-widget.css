@@ -494,7 +494,7 @@
 .shiprocket-chat-tracking-courier-meta {
   display: block;
   color: #5d6b7b;
-  font-size: 11px;
+  font-size: 10.5px;
   line-height: 1.45;
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -505,10 +505,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: #f7faff;
-  border: 1px solid rgba(202, 218, 240, 0.8);
+  padding: 9px 11px;
+  border-radius: 13px;
+  background: #f8fbff;
+  border: 1px solid rgba(206, 220, 239, 0.92);
 }
 
 .shiprocket-chat-tracking-head-label {
@@ -522,21 +522,50 @@
 
 .shiprocket-chat-tracking-head-value {
   color: #1358d8;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.2;
   font-weight: 600;
   word-break: break-word;
   text-align: right;
 }
 
+.shiprocket-chat-tracking-summary {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.shiprocket-chat-tracking-summary-item {
+  min-width: 0;
+  padding: 10px 11px;
+  border-radius: 14px;
+  background: #fbfcfe;
+  border: 1px solid rgba(216, 223, 232, 0.96);
+}
+
+.shiprocket-chat-tracking-summary-label {
+  display: block;
+  color: #637084;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.shiprocket-chat-tracking-summary-value {
+  display: block;
+  margin-top: 7px;
+  color: #1b2431;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .shiprocket-chat-tracking-submeta {
-  margin: 0;
-  padding: 10px 0 0;
-  border-top: 1px solid rgba(214, 222, 231, 0.9);
-  color: #5a6878;
-  font-size: 11px;
-  line-height: 1.6;
-  font-weight: 500;
+  display: none;
 }
 
 .shiprocket-chat-tracking-timeline {
@@ -1031,6 +1060,10 @@
 
   .shiprocket-chat-tracking-head-meta {
     padding: 9px 10px;
+  }
+
+  .shiprocket-chat-tracking-summary {
+    grid-template-columns: 1fr;
   }
 
   .shiprocket-chat-tracking-timeline-item {

@@ -33,6 +33,20 @@ function normalizeStatus(rawStatus) {
     return 'delivered';
   }
 
+  if (
+    cleaned.includes('outscan') ||
+    cleaned.includes('inscan') ||
+    cleaned.includes('outscanned to network') ||
+    cleaned.includes('bagged') ||
+    cleaned.includes('received at') ||
+    cleaned.includes('reached at') ||
+    cleaned.includes('arrived at') ||
+    cleaned.includes('hub') ||
+    cleaned.includes('network')
+  ) {
+    return 'in transit';
+  }
+
   if (cleaned.includes('manifest')) {
     return 'manifest generated';
   }
@@ -143,6 +157,8 @@ function buildReply({ status, lastLocation, expectedDelivery, courierName, lastU
     reply = 'Your order is out for delivery.';
   } else if (status === 'cancelled') {
     reply = 'This order has been cancelled.';
+  } else if (status === 'in transit') {
+    reply = 'Your order is in transit.';
   } else {
     reply = `Your order is currently ${status}.`;
   }

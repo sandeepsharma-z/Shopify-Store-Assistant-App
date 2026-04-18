@@ -346,6 +346,10 @@
     return toTitleWords(String(value).replace(/\s+/g, ' ').trim());
   }
 
+  function formatSummaryStatus(value) {
+    return formatLabelText(value || 'Shipment update');
+  }
+
   function getTimelineStamp(rawValue) {
     const monthMap = {
       january: 'JAN',
@@ -435,7 +439,7 @@
     const courierMeta = createElement(
       'span',
       'shiprocket-chat-tracking-courier-meta',
-      formatLabelText(tracking.status || tracking.latest_event || 'Shipment update'),
+      tracking.last_update_at ? 'Updated ' + tracking.last_update_at : formatSummaryStatus(tracking.latest_event),
     );
     const headMeta = createElement('div', 'shiprocket-chat-tracking-head-meta');
     const headLabel = createElement(
@@ -460,6 +464,30 @@
     head.appendChild(brand);
     head.appendChild(headMeta);
     card.appendChild(head);
+
+    const summary = createElement('div', 'shiprocket-chat-tracking-summary');
+    const summaryItems = [
+      ['Estimated delivery', tracking.expected_delivery || 'Awaiting update'],
+      ['Status', formatSummaryStatus(tracking.status)],
+    ];
+
+    if (tracking.last_location) {
+      summaryItems.push(['Latest hub', tracking.last_location]);
+    }
+
+    summaryItems.forEach(function each(item) {
+      const summaryItem = createElement('div', 'shiprocket-chat-tracking-summary-item');
+      const summaryLabel = createElement('span', 'shiprocket-chat-tracking-summary-label', item[0]);
+      const summaryValue = createElement('strong', 'shiprocket-chat-tracking-summary-value', item[1]);
+
+      summaryItem.appendChild(summaryLabel);
+      summaryItem.appendChild(summaryValue);
+      summary.appendChild(summaryItem);
+    });
+
+    if (summary.childNodes.length) {
+      card.appendChild(summary);
+    }
 
     const submetaValues = [];
 
