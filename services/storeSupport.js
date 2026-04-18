@@ -61,12 +61,6 @@ function buildContactDetails(config) {
     parts.push(`Hours: ${config.supportHours}`);
   }
 
-  if (config.contactUrl) {
-    parts.push(`Contact page: ${config.contactUrl}`);
-  } else if (config.storeUrl) {
-    parts.push(`Store: ${config.storeUrl}`);
-  }
-
   return parts;
 }
 
@@ -78,6 +72,22 @@ function withTrailingPeriod(value) {
   }
 
   return /[.!?]$/.test(text) ? text : `${text}.`;
+}
+
+function buildStoreReference(config) {
+  if (config.contactUrl) {
+    return `You can also check ${config.contactUrl}.`;
+  }
+
+  if (config.storeUrl) {
+    return `You can also visit ${config.storeUrl}.`;
+  }
+
+  return null;
+}
+
+function joinReplyParts(parts) {
+  return parts.filter(Boolean).join(' ');
 }
 
 function detectSupportIntent(message) {
@@ -146,6 +156,7 @@ function createSupportReply({ message, shopDomain }) {
   const contactText = contactDetails.length
     ? ` ${contactDetails.join('. ')}.`
     : '';
+  const storeReference = buildStoreReference(config);
   const suggestions = ['Find products', 'Browse collections', 'Track my order', 'Order help'];
 
   if (intent === 'help') {
@@ -166,7 +177,10 @@ function createSupportReply({ message, shopDomain }) {
       intent,
       reply: contactDetails.length
         ? `You can contact ${config.storeName}.${contactText}`
-        : `Support contact details are not configured yet. You can still use this assistant for products, collections, and live shipment tracking.`,
+        : joinReplyParts([
+            `You can use this assistant for products, collections, and live shipment tracking.`,
+            storeReference,
+          ]),
       suggestions: ['Track my order', 'Find products', 'Browse collections', 'Shipping policy'],
     };
   }
@@ -182,7 +196,12 @@ function createSupportReply({ message, shopDomain }) {
       intent,
       reply: shippingDetails
         ? `Shipping details: ${withTrailingPeriod(shippingDetails)} For a live shipment update, send your AWB number or order ID.${contactText}`
-        : `For live delivery status, send your AWB number or order ID. General shipping details are not configured yet.${contactText}`,
+        : joinReplyParts([
+            'For a live delivery update, send your AWB number or order ID.',
+            'General shipping timelines depend on the order, serviceability, and courier partner.',
+            storeReference,
+            contactText.trim(),
+          ]),
       suggestions: ['Track my order', 'Check AWB status', 'Find products', 'Browse collections'],
     };
   }
@@ -194,7 +213,12 @@ function createSupportReply({ message, shopDomain }) {
       intent,
       reply: config.returnPolicy
         ? `Return and refund details: ${withTrailingPeriod(config.returnPolicy)}${contactText}`
-        : `Return and refund policy details are not configured yet.${contactText}`,
+        : joinReplyParts([
+            'Return and refund details are not available in the assistant right now.',
+            'Please check the store policy page or contact support for the latest terms.',
+            storeReference,
+            contactText.trim(),
+          ]),
       suggestions: ['Track my order', 'Find products', 'Browse collections', 'Contact support'],
     };
   }
@@ -206,7 +230,12 @@ function createSupportReply({ message, shopDomain }) {
       intent,
       reply: config.codPolicy
         ? `Payment details: ${withTrailingPeriod(config.codPolicy)}${contactText}`
-        : `Payment method details are not configured yet.${contactText}`,
+        : joinReplyParts([
+            'Payment method details are not available in the assistant right now.',
+            'Please check checkout options on the store or contact support for payment help.',
+            storeReference,
+            contactText.trim(),
+          ]),
       suggestions: ['Find products', 'Browse collections', 'Track my order', 'Contact support'],
     };
   }
@@ -218,7 +247,12 @@ function createSupportReply({ message, shopDomain }) {
       intent,
       reply: config.cancellationPolicy
         ? `Order change or cancellation details: ${withTrailingPeriod(config.cancellationPolicy)}${contactText}`
-        : `Order modification or cancellation details are not configured yet.${contactText}`,
+        : joinReplyParts([
+            'Order change or cancellation details are not available in the assistant right now.',
+            'Please contact support as early as possible if you need help with an order update.',
+            storeReference,
+            contactText.trim(),
+          ]),
       suggestions: ['Track my order', 'Order ID status', 'Contact support', 'Find products'],
     };
   }
