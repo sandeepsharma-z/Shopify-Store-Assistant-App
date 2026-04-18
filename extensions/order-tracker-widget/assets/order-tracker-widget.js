@@ -14,13 +14,6 @@
     'Browse fresh collections',
     'Get live delivery updates',
   ];
- const starterPrompts = [
-    'Track Your Order',
-    'Refund Policy',
-    'Privacy Policy',
-    'Terms of Service',
-    'Returns & Exchange',
-  ];
   function parseJsonSafe(response) {
     return response.text().then(function toJson(text) {
       if (!text) {
@@ -1045,20 +1038,6 @@
     });
   }
 
-  function renderStarterPrompts(container, onSelect) {
-    container.innerHTML = '';
-
-    starterPrompts.forEach(function each(prompt) {
-      const button = createButton('shiprocket-chat-prompt', prompt);
-
-      button.addEventListener('click', function onClick() {
-        onSelect(prompt);
-      });
-
-      container.appendChild(button);
-    });
-  }
-
   function createWidget(root) {
     if (root.dataset.initialized === 'true') {
       return;
@@ -1143,10 +1122,8 @@
       'shiprocket-chat-intro-copy',
       description,
     );
-    const promptRow = createElement('div', 'shiprocket-chat-prompt-row');
     intro.appendChild(introBadge);
     intro.appendChild(introCopy);
-    intro.appendChild(promptRow);
 
     const messages = createElement('div', 'shiprocket-chat-messages');
     messages.setAttribute('aria-live', 'polite');
@@ -1179,8 +1156,6 @@
     root.appendChild(panel);
 
     startLauncherTextRotation(launcherSubtitle, launcherHighlights);
-    renderStarterPrompts(promptRow, submitPrompt);
-
     let typingNode = null;
 
     function persistState() {
