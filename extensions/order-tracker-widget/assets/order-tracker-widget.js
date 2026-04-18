@@ -578,7 +578,7 @@
 
     const timelineItems =
       Array.isArray(tracking.recent_updates) && tracking.recent_updates.length
-        ? tracking.recent_updates.slice(0, 6)
+        ? tracking.recent_updates
         : [
             {
               raw_status: tracking.latest_event || tracking.status,

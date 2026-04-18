@@ -600,6 +600,25 @@
   margin-top: 12px;
   display: flex;
   flex-direction: column;
+  max-height: 332px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(167, 177, 190, 0.92) transparent;
+}
+
+.shiprocket-chat-tracking-timeline::-webkit-scrollbar {
+  width: 8px;
+}
+
+.shiprocket-chat-tracking-timeline::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(167, 177, 190, 0.92);
+}
+
+.shiprocket-chat-tracking-timeline::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .shiprocket-chat-tracking-timeline-item {
@@ -1121,6 +1140,11 @@
   .shiprocket-chat-tracking-timeline-item {
     grid-template-columns: 54px 16px minmax(0, 1fr);
     gap: 8px;
+  }
+
+  .shiprocket-chat-tracking-timeline {
+    max-height: 286px;
+    padding-right: 4px;
   }
 
   .shiprocket-chat-tracking-date {
