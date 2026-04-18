@@ -709,6 +709,36 @@ function buildCollectionReply(collections, request, shop) {
     return null;
   }
 
+  if (collections.length === 1) {
+    const collection = collections[0];
+    const sampleProducts = collection.products
+      .slice(0, 3)
+      .map((product) => product.title)
+      .filter(Boolean);
+    const parts = [`I found the ${collection.title} collection.`];
+
+    if (collection.description) {
+      parts.push(collection.description);
+    }
+
+    if (sampleProducts.length) {
+      parts.push(`Some products in this collection: ${sampleProducts.join(', ')}.`);
+    }
+
+    if (collection.url) {
+      parts.push(`You can browse it here: ${collection.url}.`);
+    }
+
+    return {
+      success: true,
+      source: 'catalog',
+      intent: 'collection_lookup',
+      reply: parts.join(' '),
+      suggestions: DEFAULT_CATALOG_SUGGESTIONS,
+      catalog: buildCatalogEnvelope('collections', request, shop, [collection]),
+    };
+  }
+
   const summary = collections
     .slice(0, 3)
     .map((collection) => {
