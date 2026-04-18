@@ -150,6 +150,9 @@ function getStatusExplanation(status) {
 function buildReply({ status, lastLocation, expectedDelivery, courierName, lastUpdateAt }) {
   let reply;
   const statusExplanation = getStatusExplanation(status);
+  const shouldShowExpectedDelivery =
+    Boolean(expectedDelivery) &&
+    !['delivered', 'return delivered', 'cancelled'].includes(String(status || '').toLowerCase());
 
   if (status === 'delivered') {
     reply = 'Your order has been delivered.';
@@ -175,7 +178,7 @@ function buildReply({ status, lastLocation, expectedDelivery, courierName, lastU
     reply += ` Courier partner: ${courierName}.`;
   }
 
-  if (expectedDelivery) {
+  if (shouldShowExpectedDelivery) {
     reply += ` Expected delivery: ${expectedDelivery}.`;
   }
 
