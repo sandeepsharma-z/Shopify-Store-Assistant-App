@@ -1059,7 +1059,7 @@
     left: 0;
     right: 0;
     width: auto;
-    height: min(78vh, 700px);
+    height: min(82vh, 720px);
     border-radius: 24px;
   }
 
@@ -1076,6 +1076,10 @@
     flex: 1 1 0;
   }
 
+   .shiprocket-chat-action--icon {
+    flex: 0 0 40px;
+  }
+
   .shiprocket-chat-composer {
     grid-template-columns: 1fr;
   }
@@ -1085,15 +1089,15 @@
   }
 
   .shiprocket-chat-bubble {
-    max-width: 92%;
+    max-width: 96%;
   }
 
   .shiprocket-chat-message--assistant .shiprocket-chat-bubble {
-    width: min(100%, 92%);
+    width: min(100%, 96%);
   }
 
   .shiprocket-chat-bubble--user {
-    max-width: min(88%, 280px);
+    max-width: min(90%, 300px);
   }
 
   .shiprocket-chat-tracking-card {
@@ -1167,6 +1171,173 @@
 
   .shiprocket-chat-tracking-activity,
   .shiprocket-chat-tracking-location {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 420px) {
+  .shiprocket-order-tracker-root {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+  }
+
+  .shiprocket-chat-launcher {
+    gap: 10px;
+  }
+
+  .shiprocket-chat-launcher-icon {
+    width: 56px;
+    height: 56px;
+    flex-basis: 56px;
+  }
+
+  .shiprocket-chat-launcher-card {
+    min-width: 0;
+    padding: 12px 14px;
+    border-radius: 18px;
+  }
+
+  .shiprocket-chat-launcher-title {
+    font-size: 15px;
+  }
+
+  .shiprocket-chat-panel {
+    width: auto;
+    height: min(84vh, 760px);
+    border-radius: 22px;
+  }
+
+  .shiprocket-chat-meta,
+  .shiprocket-chat-body,
+  .shiprocket-chat-suggestions,
+  .shiprocket-chat-composer {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .shiprocket-chat-intro {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .shiprocket-chat-intro-copy {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .shiprocket-chat-prompt,
+  .shiprocket-chat-suggestion {
+    padding: 9px 12px;
+    font-size: 11px;
+  }
+
+  .shiprocket-chat-messages {
+    gap: 10px;
+  }
+
+  .shiprocket-chat-bubble {
+    padding: 12px 13px;
+    border-radius: 18px;
+  }
+
+  .shiprocket-chat-text {
+    font-size: 13px;
+    line-height: 1.65;
+  }
+
+  .shiprocket-chat-composer {
+    grid-template-columns: minmax(0, 1fr) 76px;
+    gap: 6px;
+    padding-top: 8px;
+  }
+
+  .shiprocket-chat-input {
+    height: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 44px;
+  }
+
+  .shiprocket-chat-send {
+    min-width: 76px;
+    min-height: 44px;
+    border-radius: 14px;
+    font-size: 11px;
+  }
+
+  .shiprocket-chat-tracking-card,
+  .shiprocket-chat-catalog-card {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .shiprocket-chat-tracking-head {
+    gap: 8px;
+  }
+
+  .shiprocket-chat-tracking-brand {
+    gap: 8px;
+  }
+
+  .shiprocket-chat-tracking-badge {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+
+  .shiprocket-chat-tracking-courier {
+    font-size: 15px;
+  }
+
+  .shiprocket-chat-tracking-head-value {
+    font-size: 14px;
+  }
+
+  .shiprocket-chat-tracking-summary-item {
+    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .shiprocket-chat-tracking-summary-value {
+    font-size: 12.5px;
+  }
+
+  .shiprocket-chat-tracking-summary-item.is-date .shiprocket-chat-tracking-summary-value {
+    font-size: 15px;
+  }
+
+  .shiprocket-chat-tracking-timeline {
+    max-height: 252px;
+    padding-right: 2px;
+  }
+
+  .shiprocket-chat-tracking-timeline-item {
+    grid-template-columns: 50px 14px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .shiprocket-chat-tracking-date {
+    font-size: 10px;
+  }
+
+  .shiprocket-chat-tracking-time {
+    font-size: 9px;
+  }
+
+  .shiprocket-chat-tracking-dot {
+    width: 12px;
+    height: 12px;
+    margin-top: 18px;
+  }
+
+  .shiprocket-chat-tracking-activity,
+  .shiprocket-chat-tracking-location,
+  .shiprocket-chat-catalog-item-title,
+  .shiprocket-chat-catalog-item-copy {
     font-size: 11px;
   }
 }

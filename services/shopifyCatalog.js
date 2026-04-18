@@ -104,10 +104,10 @@ const CATALOG_QUERY = `
 `;
 
 const DEFAULT_CATALOG_SUGGESTIONS = [
-  'Find products',
-  'Browse collections',
-  'Track my order',
-  'Shipping policy',
+  'Find Products',
+  'Browse Collections',
+  'Track Your Order',
+  'Refund Policy',
 ];
 
 const PRODUCT_HINTS = [
@@ -350,7 +350,7 @@ function normalizeProduct(node, shopDomain) {
 
   return {
     id: node.id || null,
-    title: firstText(node.title),
+    title: stripHtml(node.title),
     handle: firstText(node.handle),
     url: buildProductUrl(shopDomain, node.handle, node.onlineStoreUrl),
     available: Boolean(node.availableForSale),
@@ -372,7 +372,7 @@ function normalizeCollection(node, shopDomain) {
 
   return {
     id: node.id || null,
-    title: firstText(node.title),
+    title: stripHtml(node.title),
     handle: firstText(node.handle),
     url: buildCollectionUrl(shopDomain, node.handle, node.onlineStoreUrl),
     description: stripHtml(node.description),
@@ -579,6 +579,86 @@ function filterCollections(collections) {
     collections,
     (collection) => collection.url || collection.handle || collection.title,
   );
+}
+
+function buildSearchTokens(request) {
+  return String(request?.searchTerm || '')
+    .toLowerCase()
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 1);
+}
+
+function scoreTextMatch(text, tokens) {
+  const comparable = String(text || '').toLowerCase();
+
+  if (!comparable || !tokens.length) {
+    return 0;
+  }
+
+  return tokens.reduce((score, token) => {
+    if (comparable === token) {
+      return score + 10;
+    }
+
+    if (comparable.startsWith(token)) {
+      return score + 7;
+    }
+
+    if (comparable.includes(token)) {
+      return score + 4;
+    }
+
+    return score;
+  }, 0);
+}
+
+function rankProducts(products, request) {
+  const tokens = buildSearchTokens(request);
+
+  if (!tokens.length) {
+    return products;
+  }
+
+  return [...products].sort((left, right) => {
+    const leftScore =
+      scoreTextMatch(left.title, tokens) * 3 +
+      scoreTextMatch(left.handle, tokens) * 2 +
+      scoreTextMatch(left.vendor, tokens) +
+      scoreTextMatch(left.productType, tokens);
+    const rightScore =
+      scoreTextMatch(right.title, tokens) * 3 +
+      scoreTextMatch(right.handle, tokens) * 2 +
+      scoreTextMatch(right.vendor, tokens) +
+      scoreTextMatch(right.productType, tokens);
+
+    if (rightScore !== leftScore) {
+      return rightScore - leftScore;
+    }
+
+    return (right.available === left.available) ? 0 : right.available ? 1 : -1;
+  });
+}
+
+function rankCollections(collections, request) {
+  const tokens = buildSearchTokens(request);
+
+  if (!tokens.length) {
+    return collections;
+  }
+
+  return [...collections].sort((left, right) => {
+    const leftScore =
+      scoreTextMatch(left.title, tokens) * 3 +
+      scoreTextMatch(left.handle, tokens) * 2 +
+      scoreTextMatch(left.description, tokens);
+    const rightScore =
+      scoreTextMatch(right.title, tokens) * 3 +
+      scoreTextMatch(right.handle, tokens) * 2 +
+      scoreTextMatch(right.description, tokens);
+
+    return rightScore - leftScore;
+  });
 }
 
 function buildCatalogEnvelope(type, request, shop, items, extra = {}) {
@@ -820,17 +900,17 @@ async function createCatalogReply({ message, shopDomain }) {
     collectionQuery: request.searchTerm,
   });
   const shop = normalizeShop(payload.shop);
-  const products = filterProducts(
+  const products = rankProducts(filterProducts(
     (payload.products?.edges || [])
       .map((edge) => normalizeProduct(edge?.node, config.shopDomain))
       .filter(Boolean),
     request,
-  );
-  const collections = filterCollections(
+  ), request);
+  const collections = rankCollections(filterCollections(
     (payload.collections?.edges || [])
       .map((edge) => normalizeCollection(edge?.node, config.shopDomain))
       .filter(Boolean),
-  );
+  ), request);
   const shouldRetryWithRelaxedQuery =
     request.searchTerm &&
     !products.length &&
@@ -848,17 +928,17 @@ async function createCatalogReply({ message, shopDomain }) {
         collectionQuery: relaxedTerm,
       });
 
-      const relaxedProducts = filterProducts(
+      const relaxedProducts = rankProducts(filterProducts(
         (relaxedPayload.products?.edges || [])
           .map((edge) => normalizeProduct(edge?.node, config.shopDomain))
           .filter(Boolean),
         request,
-      );
-      const relaxedCollections = filterCollections(
+      ), request);
+      const relaxedCollections = rankCollections(filterCollections(
         (relaxedPayload.collections?.edges || [])
           .map((edge) => normalizeCollection(edge?.node, config.shopDomain))
           .filter(Boolean),
-      );
+      ), request);
 
       if (relaxedProducts.length || relaxedCollections.length) {
         return (

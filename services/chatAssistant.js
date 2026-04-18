@@ -220,11 +220,11 @@ async function tryTrackingCandidates(candidates) {
 function buildTrackingSuggestions(status) {
   switch (status) {
     case 'delivered':
-      return ['Track another order', 'Find products', 'Browse collections', 'Shipping policy'];
+      return ['Track Your Order', 'Find Products', 'Browse Collections', 'Refund Policy'];
     case 'out for delivery':
-      return ['Track another order', 'Order ID status', 'Find products', 'Browse collections'];
+      return ['Track Your Order', 'Order ID Status', 'Find Products', 'Browse Collections'];
     default:
-      return ['Track another order', 'Check AWB status', 'Find products', 'Browse collections'];
+      return ['Track Your Order', 'Check AWB Status', 'Find Products', 'Browse Collections'];
   }
 }
 
@@ -243,7 +243,7 @@ async function handleTrackingConversation(message) {
         intent: 'tracking',
         reply:
           'Send your AWB number or order ID and I will check the latest shipment status for you. Example: AWB 123456789 or Order ID 100001.',
-        suggestions: ['Track my order', 'Check AWB status', 'Order ID status', 'Browse collections'],
+        suggestions: ['Track Your Order', 'Check AWB Status', 'Order ID Status', 'Browse Collections'],
       });
     }
 
@@ -279,7 +279,7 @@ async function handleTrackingConversation(message) {
         source: 'tracking',
         intent: 'tracking',
         reply: 'I could not find that shipment. Please recheck the AWB number or order ID and try again.',
-        suggestions: ['Track my order', 'Check AWB status', 'Order ID status', 'Browse collections'],
+        suggestions: ['Track Your Order', 'Check AWB Status', 'Order ID Status', 'Browse Collections'],
       });
     }
 
@@ -308,7 +308,7 @@ async function handleTrackingConversation(message) {
         source: 'tracking',
         intent: 'tracking',
         reply: 'I could not find that shipment. Please recheck the AWB number or order ID and try again.',
-        suggestions: ['Track my order', 'Check AWB status', 'Order ID status', 'Browse collections'],
+        suggestions: ['Track Your Order', 'Check AWB Status', 'Order ID Status', 'Browse Collections'],
       });
     }
 
@@ -317,7 +317,7 @@ async function handleTrackingConversation(message) {
       source: 'tracking',
       intent: 'tracking',
       reply: "I couldn't fetch a live courier update right now. Please try again in a few minutes.",
-      suggestions: ['Track my order', 'Check AWB status', 'Order ID status', 'Shipping policy'],
+      suggestions: ['Track Your Order', 'Check AWB Status', 'Order ID Status', 'Refund Policy'],
     });
   }
 }

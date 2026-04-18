@@ -1,6 +1,6 @@
 (function bootstrapOrderAssistant() {
   const rootSelector = '.shiprocket-order-tracker-root';
-  const sessionKeyPrefix = 'shiprocket-order-assistant:v8:';
+  const sessionKeyPrefix = 'shiprocket-order-assistant:v9:';
   const maxStoredMessages = 30;
   const defaultSuggestions = [
     'Track Your Order',
@@ -16,6 +16,8 @@
   ];
   const starterPrompts = [
     'Track Your Order',
+    'Find Products',
+    'Browse Collections',
     'Privacy Policy',
     'Refund Policy',
     'Terms of Service',
