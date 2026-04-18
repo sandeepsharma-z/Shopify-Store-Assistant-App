@@ -94,6 +94,24 @@ const CATALOG_KEYWORDS = [
   'latest',
   'new arrival',
   'new arrivals',
+  't-shirt',
+  't shirt',
+  'tshirt',
+  'shirt',
+  'tee',
+  'hoodie',
+  'cap',
+  'frame',
+  'frames',
+  'sunglasses',
+  'ashtray',
+  'tray',
+  'cone',
+  'cones',
+  'filter',
+  'filters',
+  'paper',
+  'papers',
 ];
 
 function buildResponse({
@@ -180,6 +198,15 @@ function classifyMessage(message) {
 
   if (hasReference || trackingScore > Math.max(supportScore, catalogScore)) {
     return 'tracking';
+  }
+
+  if (
+    catalogRequest.searchTerm &&
+    /\b(t-?shirt|shirt|tee|hoodie|cap|frame|frames|sunglasses|ashtray|tray|cone|cones|filter|filters|paper|papers)\b/.test(
+      text,
+    )
+  ) {
+    return 'catalog';
   }
 
   if (
