@@ -996,8 +996,8 @@
     if (!fullText || prefersReducedMotion) {
       nodes.text.textContent = fullText;
     } else {
-      const chunkSize = fullText.length > 180 ? 3 : 2;
-      const delay = fullText.length > 180 ? 24 : 34;
+      const chunkSize = fullText.length > 220 ? 10 : fullText.length > 120 ? 6 : 4;
+      const delay = fullText.length > 220 ? 4 : fullText.length > 120 ? 7 : 10;
 
       for (let cursor = chunkSize; cursor <= fullText.length; cursor += chunkSize) {
         nodes.text.textContent = fullText.slice(0, cursor);
