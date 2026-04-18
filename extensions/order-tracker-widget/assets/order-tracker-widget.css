@@ -430,10 +430,10 @@
 }
 
 .shiprocket-chat-tracking-head {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
 }
 
 .shiprocket-chat-tracking-brand {
@@ -502,27 +502,22 @@
 
 .shiprocket-chat-tracking-head-meta {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 9px 11px;
-  border-radius: 13px;
-  background: #f8fbff;
-  border: 1px solid rgba(206, 220, 239, 0.92);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  padding-top: 3px;
 }
 
 .shiprocket-chat-tracking-head-label {
-  color: #5b6877;
-  font-size: 11px;
+  color: #1b2532;
+  font-size: 12px;
   line-height: 1.2;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .shiprocket-chat-tracking-head-value {
   color: #1358d8;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.2;
   font-weight: 600;
   word-break: break-word;
@@ -532,16 +527,29 @@
 .shiprocket-chat-tracking-summary {
   margin-top: 10px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: 1.1fr 0.9fr 1fr;
+  gap: 0;
+  border-radius: 16px;
+  background: #f8fafd;
+  border: 1px solid rgba(216, 223, 232, 0.96);
+  overflow: hidden;
 }
 
 .shiprocket-chat-tracking-summary-item {
+  position: relative;
   min-width: 0;
-  padding: 10px 11px;
-  border-radius: 14px;
-  background: #fbfcfe;
-  border: 1px solid rgba(216, 223, 232, 0.96);
+  padding: 11px 12px;
+  background: transparent;
+}
+
+.shiprocket-chat-tracking-summary-item + .shiprocket-chat-tracking-summary-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  background: rgba(214, 221, 230, 0.98);
 }
 
 .shiprocket-chat-tracking-summary-label {
@@ -560,8 +568,24 @@
   color: #1b2431;
   font-size: 13px;
   line-height: 1.35;
-  font-weight: 600;
+  font-weight: 500;
   overflow-wrap: anywhere;
+}
+
+.shiprocket-chat-tracking-summary-item:first-child .shiprocket-chat-tracking-summary-value {
+  color: #2456d6;
+  font-size: 18px;
+  line-height: 1.05;
+  font-weight: 700;
+}
+
+.shiprocket-chat-tracking-summary-item:nth-child(2) .shiprocket-chat-tracking-summary-value {
+  color: #ee8d12;
+  font-weight: 700;
+}
+
+.shiprocket-chat-tracking-summary-item:nth-child(3) .shiprocket-chat-tracking-summary-value {
+  font-weight: 600;
 }
 
 .shiprocket-chat-tracking-submeta {
@@ -1041,6 +1065,7 @@
   }
 
   .shiprocket-chat-tracking-head {
+    grid-template-columns: 1fr;
     gap: 10px;
   }
 
@@ -1059,11 +1084,25 @@
   }
 
   .shiprocket-chat-tracking-head-meta {
-    padding: 9px 10px;
+    align-items: flex-start;
+    padding-top: 0;
   }
 
   .shiprocket-chat-tracking-summary {
     grid-template-columns: 1fr;
+  }
+
+  .shiprocket-chat-tracking-summary-item {
+    padding: 10px 11px;
+  }
+
+  .shiprocket-chat-tracking-summary-item + .shiprocket-chat-tracking-summary-item::before {
+    left: 11px;
+    right: 11px;
+    top: 0;
+    bottom: auto;
+    width: auto;
+    height: 1px;
   }
 
   .shiprocket-chat-tracking-timeline-item {
