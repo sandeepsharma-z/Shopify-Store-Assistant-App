@@ -9,6 +9,17 @@ function normalizeStatus(rawStatus) {
 
   const cleaned = String(rawStatus).replace(/_/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 
+  if (
+    cleaned.includes('destination hub') ||
+    cleaned.includes('reached at destination') ||
+    cleaned.includes('reached destination') ||
+    cleaned.includes('arrived at destination') ||
+    cleaned.includes('arrival at destination') ||
+    cleaned.includes('destination service area')
+  ) {
+    return 'reached destination hub';
+  }
+
   if (cleaned.includes('pick up scan') || cleaned.includes('pickup scan')) {
     return 'picked up';
   }
@@ -75,6 +86,7 @@ function normalizeStatus(rawStatus) {
     'shipment booked': 'shipment booked',
     'manifest generated': 'manifest generated',
     'in transit': 'in transit',
+    'reached destination hub': 'reached destination hub',
     'rto in transit': 'return in transit',
     'return in transit': 'return in transit',
     'rto delivered': 'return delivered',
@@ -137,6 +149,8 @@ function getStatusExplanation(status) {
     'pickup scheduled': 'Pickup has been scheduled with the courier.',
     'picked up': 'The courier has collected your parcel from the seller.',
     'in transit': 'The parcel is moving through the courier network.',
+    'reached destination hub':
+      'The parcel has reached the destination hub and should move to the next local delivery step soon.',
     'out for delivery': 'The parcel should reach the delivery address soon.',
     delivered: 'The shipment has reached the customer.',
     cancelled: 'The shipment has been cancelled in the system.',
@@ -161,6 +175,8 @@ function buildReply({ status, lastLocation, expectedDelivery, deliveredOn, couri
     reply = 'Your order is out for delivery.';
   } else if (status === 'cancelled') {
     reply = 'This order has been cancelled.';
+  } else if (status === 'reached destination hub') {
+    reply = 'Your order has reached the destination hub.';
   } else if (status === 'in transit') {
     reply = 'Your order is in transit.';
   } else {

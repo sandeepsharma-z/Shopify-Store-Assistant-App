@@ -330,6 +330,14 @@
     let text = String(value).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
 
     if (
+      /destination hub|reached at destination|reached destination|arrived at destination|destination service area/i.test(
+        text,
+      )
+    ) {
+      return 'Reached At Destination Hub';
+    }
+
+    if (
       !/^shipment\b/i.test(text) &&
       /(delivered|outscan|inscan|in transit|booked|manifest|return delivered|return in transit)/i.test(text)
     ) {
@@ -352,6 +360,16 @@
 
     if (!text) {
       return 'Shipment update';
+    }
+
+    if (
+      text.indexOf('destination hub') !== -1 ||
+      text.indexOf('reached at destination') !== -1 ||
+      text.indexOf('reached destination') !== -1 ||
+      text.indexOf('arrived at destination') !== -1 ||
+      text.indexOf('destination service area') !== -1
+    ) {
+      return 'Reached destination hub';
     }
 
     if (text.indexOf('delivered') !== -1) {

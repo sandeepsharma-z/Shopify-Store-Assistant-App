@@ -243,6 +243,27 @@ function buildRecentUpdates(activities) {
     });
 }
 
+function deriveTrackingStatus(rawStatus, activities) {
+  const normalized = normalizeStatus(rawStatus);
+  const latestActivity = Array.isArray(activities) && activities.length ? activities[0] : null;
+  const previousActivity =
+    Array.isArray(activities) && activities.length > 1 ? activities[1] : null;
+  const latestRawStatus = String(latestActivity?.status || '').toLowerCase();
+  const previousRawStatus = String(previousActivity?.status || '').toLowerCase();
+
+  if (
+    normalized === 'in transit' &&
+    latestRawStatus.includes('inscan') &&
+    (previousRawStatus.includes('outscanned to network') ||
+      previousRawStatus.includes('outscan') ||
+      previousRawStatus.includes('network'))
+  ) {
+    return 'reached destination hub';
+  }
+
+  return normalized;
+}
+
 function findFirstActivityByStatus(activities, predicate) {
   if (!Array.isArray(activities) || typeof predicate !== 'function') {
     return null;
@@ -355,7 +376,7 @@ function extractTrackingSummary(payload, lookup = {}) {
     payload?.expected_delivery_date,
   ]);
 
-  const status = normalizeStatus(rawStatus);
+  const status = deriveTrackingStatus(rawStatus, activities);
   const lastLocation = normalizeLocation(rawLocation);
   const deliveredActivity = findFirstActivityByStatus(activities, (activity) => {
     const normalized = String(activity?.normalized_status || '').toLowerCase();
@@ -382,12 +403,13 @@ function extractTrackingSummary(payload, lookup = {}) {
       payload?.updated_at,
     ]),
   );
-  const latestEvent = normalizeStatus(
+  const latestEvent = deriveTrackingStatus(
     firstNonEmptyString([
       latestActivity?.status,
       root.current_status_body,
       root.status,
     ]),
+    activities,
   );
   const trackUrl = extractTrackingUrl(payload);
   const recentUpdates = buildRecentUpdates(activities);
