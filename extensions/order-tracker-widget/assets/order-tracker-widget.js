@@ -391,6 +391,30 @@
     return formatLabelText(value || 'Shipment update');
   }
 
+  function getDeliveredOnDate(tracking) {
+    if (!tracking || typeof tracking !== 'object') {
+      return null;
+    }
+
+    if (tracking.delivered_on) {
+      return tracking.delivered_on;
+    }
+
+    const updates = Array.isArray(tracking.recent_updates) ? tracking.recent_updates : [];
+    const deliveredUpdate = updates.find(function findDelivered(update) {
+      return formatSummaryStatus(update && (update.status || update.raw_status)).toLowerCase() === 'delivered';
+    });
+
+    if (!deliveredUpdate) {
+      return null;
+    }
+
+    const source = String(deliveredUpdate.date || deliveredUpdate.raw_date || '').trim();
+    const match = source.match(/^(\d{1,2}\s+[A-Za-z]+)/);
+
+    return match ? match[1] : source || null;
+  }
+
   function buildAssistantReplyText(payload) {
     if (!payload || !payload.tracking || typeof payload.reply !== 'string') {
       return payload && typeof payload.reply === 'string' ? payload.reply : '';
@@ -555,12 +579,13 @@
     const normalizedStatus = formatSummaryStatus(tracking.status);
     const isDeliveredState = normalizedStatus.toLowerCase() === 'delivered';
     const isCancelledState = normalizedStatus.toLowerCase() === 'cancelled';
+    const deliveredOnDate = getDeliveredOnDate(tracking);
     const summaryItems = [];
 
-    if ((tracking.delivered_on || tracking.expected_delivery) && !isCancelledState) {
+    if (((deliveredOnDate && isDeliveredState) || tracking.expected_delivery) && !isCancelledState) {
       summaryItems.push([
         isDeliveredState ? 'Delivered on' : 'Expected delivery',
-        tracking.delivered_on || tracking.expected_delivery,
+        isDeliveredState ? deliveredOnDate : tracking.expected_delivery,
       ]);
     }
 
