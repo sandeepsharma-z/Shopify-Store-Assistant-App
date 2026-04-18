@@ -366,13 +366,13 @@
 
 .shiprocket-chat-bubble {
   min-width: 0;
-  max-width: 86%;
+  max-width: 92%;
   padding: 13px 15px;
   border-radius: 20px;
 }
 
 .shiprocket-chat-message--assistant .shiprocket-chat-bubble {
-  width: min(100%, 86%);
+  width: min(100%, 92%);
 }
 
 .shiprocket-chat-bubble--assistant {
@@ -422,31 +422,31 @@
 
 .shiprocket-chat-tracking-card {
   margin-top: 14px;
-  padding: 16px 15px 14px;
-  border-radius: 22px;
+  padding: 15px 14px 13px;
+  border-radius: 20px;
   background: #ffffff;
-  border: 1px solid rgba(208, 216, 226, 0.9);
-  box-shadow: 0 10px 24px rgba(31, 38, 48, 0.045);
+  border: 1px solid rgba(214, 222, 231, 0.95);
+  box-shadow: 0 8px 20px rgba(31, 38, 48, 0.04);
 }
 
 .shiprocket-chat-tracking-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
 }
 
 .shiprocket-chat-tracking-brand {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 11px;
 }
 
 .shiprocket-chat-tracking-badge {
-  width: 64px;
-  height: 64px;
-  flex: 0 0 64px;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 54px;
   border-radius: 50%;
   display: flex;
   flex-direction: column;
@@ -461,86 +461,94 @@
   color: #ffffff;
   line-height: 1;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .shiprocket-chat-tracking-badge-line.is-primary {
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .shiprocket-chat-tracking-badge-line.is-secondary {
   margin-top: 3px;
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .shiprocket-chat-tracking-brand-copy {
   min-width: 0;
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .shiprocket-chat-tracking-courier {
   display: block;
   color: #121d2c;
-  font-size: 21px;
-  line-height: 1.08;
+  font-size: 18px;
+  line-height: 1.18;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .shiprocket-chat-tracking-courier-meta {
   display: block;
-  margin-top: 5px;
   color: #5d6b7b;
   font-size: 11px;
   line-height: 1.45;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .shiprocket-chat-tracking-head-meta {
-  flex: 0 0 auto;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
-  padding-top: 2px;
-  max-width: 112px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #f7faff;
+  border: 1px solid rgba(202, 218, 240, 0.8);
 }
 
 .shiprocket-chat-tracking-head-label {
   color: #5b6877;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.2;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .shiprocket-chat-tracking-head-value {
   color: #1358d8;
   font-size: 15px;
   line-height: 1.2;
-  font-weight: 700;
+  font-weight: 600;
   word-break: break-word;
+  text-align: right;
 }
 
 .shiprocket-chat-tracking-submeta {
-  margin: 12px 0 0;
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 1px solid rgba(214, 222, 231, 0.9);
   color: #5a6878;
-  font-size: 11.5px;
-  line-height: 1.55;
+  font-size: 11px;
+  line-height: 1.6;
   font-weight: 500;
 }
 
 .shiprocket-chat-tracking-timeline {
-  margin-top: 14px;
+  margin-top: 12px;
   display: flex;
   flex-direction: column;
 }
 
 .shiprocket-chat-tracking-timeline-item {
   display: grid;
-  grid-template-columns: 70px 20px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 62px 18px minmax(0, 1fr);
+  gap: 11px;
   align-items: stretch;
 }
 
@@ -549,13 +557,13 @@
 }
 
 .shiprocket-chat-tracking-timeline-stamp {
-  padding-top: 10px;
+  padding-top: 11px;
 }
 
 .shiprocket-chat-tracking-date {
   display: block;
   color: #1a2430;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1;
   font-weight: 700;
   text-transform: uppercase;
@@ -565,9 +573,9 @@
   display: block;
   margin-top: 6px;
   color: #566273;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.2;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
 }
 
@@ -599,12 +607,12 @@
 .shiprocket-chat-tracking-dot {
   position: relative;
   z-index: 1;
-  width: 16px;
-  height: 16px;
-  margin-top: 19px;
+  width: 14px;
+  height: 14px;
+  margin-top: 20px;
   border-radius: 50%;
   background: #b6bcc5;
-  border: 3px solid #ffffff;
+  border: 2px solid #ffffff;
   box-shadow: 0 0 0 1px rgba(182, 188, 197, 0.8);
 }
 
@@ -615,7 +623,7 @@
 
 .shiprocket-chat-tracking-content {
   min-width: 0;
-  padding: 10px 0 16px;
+  padding: 11px 0 14px;
   border-top: 1px solid rgba(210, 217, 226, 0.9);
 }
 
@@ -628,16 +636,16 @@
 .shiprocket-chat-tracking-location {
   margin: 0;
   color: #1a2430;
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .shiprocket-chat-tracking-location {
-  margin-top: 8px;
+  margin-top: 7px;
 }
 
 .shiprocket-chat-tracking-field-label {
-  color: #101925;
+  color: #465363;
   font-weight: 600;
 }
 
@@ -1004,8 +1012,7 @@
   }
 
   .shiprocket-chat-tracking-head {
-    flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
 
   .shiprocket-chat-tracking-brand {
@@ -1013,44 +1020,44 @@
   }
 
   .shiprocket-chat-tracking-badge {
-    width: 56px;
-    height: 56px;
-    flex-basis: 56px;
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
   }
 
   .shiprocket-chat-tracking-courier {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .shiprocket-chat-tracking-head-meta {
-    align-items: flex-start;
-    padding-top: 0;
-    max-width: none;
+    padding: 9px 10px;
   }
 
   .shiprocket-chat-tracking-timeline-item {
-    grid-template-columns: 58px 18px minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: 54px 16px minmax(0, 1fr);
+    gap: 8px;
   }
 
   .shiprocket-chat-tracking-date {
-    font-size: 12px;
-  }
-
-  .shiprocket-chat-tracking-time {
     font-size: 11px;
   }
 
+  .shiprocket-chat-tracking-time {
+    font-size: 10px;
+  }
+
   .shiprocket-chat-tracking-dot {
-    margin-top: 18px;
+    width: 13px;
+    height: 13px;
+    margin-top: 19px;
   }
 
   .shiprocket-chat-tracking-content {
-    padding-bottom: 14px;
+    padding-bottom: 12px;
   }
 
   .shiprocket-chat-tracking-activity,
   .shiprocket-chat-tracking-location {
-    font-size: 12px;
+    font-size: 11px;
   }
 }
