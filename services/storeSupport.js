@@ -22,10 +22,38 @@ function buildStoreUrl(shopDomain) {
   return `https://${normalized.replace(/^https?:\/\//i, '').replace(/\/+$/, '')}`;
 }
 
-function getSupportConfig(shopDomain) {
-  const runtime = buildRuntimeSettings(shopDomain);
+function applyStoreDefaults(config, shopDomain) {
+  const normalizedShop = firstText(shopDomain || '')
+    ?.toLowerCase()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/+$/, '');
+
+  if (normalizedShop !== 'litaf.in') {
+    return config;
+  }
 
   return {
+    ...config,
+    supportEmail: config.supportEmail || 'info@litaf.in',
+    supportWhatsapp: config.supportWhatsapp || '+91 82921 49219',
+    shippingPolicy:
+      config.shippingPolicy ||
+      'Shipping is free for all domestic orders. Standard delivery usually takes 3 to 4 working days, while high-launch-demand orders may dispatch within 5 to 7 working days.',
+    returnPolicy:
+      config.returnPolicy ||
+      'Free returns are available within 3 days. Jewellery, rugs, and frames are non-returnable unless damaged or incorrect. Sale items are final and not eligible for return or exchange.',
+    codPolicy:
+      config.codPolicy ||
+      'Available payment options are shown at checkout. For payment-related help, contact the store support team.',
+    cancellationPolicy:
+      config.cancellationPolicy ||
+      'If you need to change or cancel an order, contact support as early as possible before shipment processing starts.',
+  };
+}
+
+function getSupportConfig(shopDomain) {
+  const runtime = buildRuntimeSettings(shopDomain);
+  const baseConfig = {
     storeName: runtime.storeName || 'our store',
     supportEmail: runtime.supportEmail,
     supportPhone: runtime.supportPhone,
@@ -40,6 +68,8 @@ function getSupportConfig(shopDomain) {
     contactUrl: runtime.contactUrl,
     storeUrl: buildStoreUrl(runtime.shopDomain),
   };
+
+  return applyStoreDefaults(baseConfig, runtime.shopDomain);
 }
 
 function buildContactDetails(config) {
