@@ -838,6 +838,8 @@ function buildProductReply(products, request, shop) {
   if (products.length === 1 || shouldUseDetailAnswer) {
     const product = primaryProduct;
     const details = [];
+    const multiProductCardItems =
+      products.length > 1 && buildSearchTokens(request).length <= 2 ? products.slice(0, 4) : [product];
 
     if (product.price) {
       details.push(`Price: ${product.price}`);
@@ -883,7 +885,7 @@ function buildProductReply(products, request, shop) {
       intent: shouldUseDetailAnswer ? 'product_details' : 'product_lookup',
       reply: `I found ${product.title}. ${details.join('. ')}.`,
       suggestions: DEFAULT_CATALOG_SUGGESTIONS,
-      catalog: buildCatalogEnvelope('products', request, shop, [product]),
+      catalog: buildCatalogEnvelope('products', request, shop, multiProductCardItems),
     };
   }
 
