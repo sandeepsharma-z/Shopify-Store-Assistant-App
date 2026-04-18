@@ -160,6 +160,10 @@ const RECOMMENDATION_HINTS = [
 const GENERIC_DISCOVERY_HINTS = ['show', 'find', 'browse', 'search', 'latest', 'new arrivals'];
 
 const FILLER_PATTERNS = [
+  /\bgive me\b/gi,
+  /\bgive\b/gi,
+  /\bget me\b/gi,
+  /\bshow us\b/gi,
   /\bdo you have\b/gi,
   /\bshow me\b/gi,
   /\bshow\b/gi,
@@ -183,6 +187,7 @@ const FILLER_PATTERNS = [
   /\blooking for\b/gi,
   /\bi want\b/gi,
   /\bi need\b/gi,
+  /\byour\b/gi,
   /\bcan you\b/gi,
   /\bcan u\b/gi,
   /\bplease\b/gi,
@@ -744,6 +749,25 @@ function buildNoResultsReply(request, shop) {
   };
 }
 
+function buildRelaxedSearchTerm(searchTerm) {
+  const cleaned = cleanCatalogTerm(searchTerm || '');
+
+  if (!cleaned) {
+    return null;
+  }
+
+  const parts = cleaned
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((part) => part.length > 2);
+
+  if (parts.length <= 1) {
+    return cleaned;
+  }
+
+  return parts.join(' OR ');
+}
+
 async function createCatalogReply({ message, shopDomain }) {
   const config = getStorefrontConfig(shopDomain);
 
@@ -777,6 +801,43 @@ async function createCatalogReply({ message, shopDomain }) {
       .map((edge) => normalizeCollection(edge?.node, config.shopDomain))
       .filter(Boolean),
   );
+  const shouldRetryWithRelaxedQuery =
+    request.searchTerm &&
+    !products.length &&
+    !collections.length &&
+    /\s/.test(request.searchTerm);
+
+  if (shouldRetryWithRelaxedQuery) {
+    const relaxedTerm = buildRelaxedSearchTerm(request.searchTerm);
+
+    if (relaxedTerm && relaxedTerm !== request.searchTerm) {
+      const relaxedPayload = await storefrontQuery(config, {
+        productFirst: 8,
+        collectionFirst: 6,
+        productQuery: relaxedTerm,
+        collectionQuery: relaxedTerm,
+      });
+
+      const relaxedProducts = filterProducts(
+        (relaxedPayload.products?.edges || [])
+          .map((edge) => normalizeProduct(edge?.node, config.shopDomain))
+          .filter(Boolean),
+        request,
+      );
+      const relaxedCollections = filterCollections(
+        (relaxedPayload.collections?.edges || [])
+          .map((edge) => normalizeCollection(edge?.node, config.shopDomain))
+          .filter(Boolean),
+      );
+
+      if (relaxedProducts.length || relaxedCollections.length) {
+        return (
+          buildProductReply(relaxedProducts, request, shop) ||
+          buildCollectionReply(relaxedCollections, request, shop)
+        );
+      }
+    }
+  }
 
   if (request.wantsStoreOverview || (!request.searchTerm && request.wantsOverview)) {
     return buildOverviewReply(shop, products, collections, request);
