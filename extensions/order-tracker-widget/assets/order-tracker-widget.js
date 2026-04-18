@@ -391,6 +391,28 @@
     return formatLabelText(value || 'Shipment update');
   }
 
+  function getTimelineStateClass(value) {
+    const status = formatSummaryStatus(value).toLowerCase();
+
+    if (status === 'delivered') {
+      return ' is-delivered';
+    }
+
+    if (status === 'out for delivery') {
+      return ' is-out-for-delivery';
+    }
+
+    if (status === 'returning') {
+      return ' is-returning';
+    }
+
+    if (status === 'cancelled') {
+      return ' is-cancelled';
+    }
+
+    return '';
+  }
+
   function getTimelineStamp(rawValue) {
     const monthMap = {
       january: 'JAN',
@@ -574,7 +596,9 @@
         const stamp = getTimelineStamp(update.raw_date || update.date);
         const item = createElement(
           'div',
-          'shiprocket-chat-tracking-timeline-item' + (index === 0 ? ' is-current' : ''),
+          'shiprocket-chat-tracking-timeline-item' +
+            (index === 0 ? ' is-current' : '') +
+            getTimelineStateClass(update.raw_status || update.status),
         );
         const timeBlock = createElement('div', 'shiprocket-chat-tracking-timeline-stamp');
         const date = createElement('strong', 'shiprocket-chat-tracking-date', stamp.date);
