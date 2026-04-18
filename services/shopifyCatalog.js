@@ -104,10 +104,10 @@ const CATALOG_QUERY = `
 `;
 
 const DEFAULT_CATALOG_SUGGESTIONS = [
-  'Find Products',
-  'Browse Collections',
   'Track Your Order',
   'Refund Policy',
+  'Privacy Policy',
+  'Terms of Service',
 ];
 
 const PRODUCT_HINTS = [

@@ -6,7 +6,7 @@
     'Track Your Order',
     'Refund Policy',
     'Privacy Policy',
-    'Returns & Exchange',
+    'Terms of Service',
   ];
   const launcherHighlights = [
     'Track orders instantly',
@@ -14,7 +14,13 @@
     'Browse fresh collections',
     'Get live delivery updates',
   ];
- const starterPrompts = [];
+ const starterPrompts = [
+    'Track Your Order',
+    'Refund Policy',
+    'Privacy Policy',
+    'Terms of Service',
+    'Returns & Exchange',
+  ];
   function parseJsonSafe(response) {
     return response.text().then(function toJson(text) {
       if (!text) {

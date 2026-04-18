@@ -235,11 +235,11 @@ async function tryTrackingCandidates(candidates) {
 function buildTrackingSuggestions(status) {
   switch (status) {
     case 'delivered':
-      return ['Track Your Order', 'Find Products', 'Browse Collections', 'Refund Policy'];
+      return ['Track Your Order', 'Refund Policy', 'Privacy Policy', 'Terms of Service'];
     case 'out for delivery':
-      return ['Track Your Order', 'Order ID Status', 'Find Products', 'Browse Collections'];
+      return ['Track Your Order', 'Order ID Status', 'Refund Policy', 'Privacy Policy'];
     default:
-      return ['Track Your Order', 'Check AWB Status', 'Find Products', 'Browse Collections'];
+      return ['Track Your Order', 'Check AWB Status', 'Refund Policy', 'Privacy Policy'];
   }
 }
 
@@ -258,7 +258,7 @@ async function handleTrackingConversation(message) {
         intent: 'tracking',
         reply:
           'Send your AWB number or order ID and I will check the latest shipment status for you. Example: AWB 123456789 or Order ID 100001.',
-        suggestions: ['Track Your Order', 'Check AWB Status', 'Order ID Status', 'Browse Collections'],
+        suggestions: ['Track Your Order', 'Check AWB Status', 'Refund Policy', 'Privacy Policy'],
       });
     }
 
@@ -294,7 +294,7 @@ async function handleTrackingConversation(message) {
         source: 'tracking',
         intent: 'tracking',
         reply: 'I could not find that shipment. Please recheck the AWB number or order ID and try again.',
-        suggestions: ['Track Your Order', 'Check AWB Status', 'Order ID Status', 'Browse Collections'],
+        suggestions: ['Track Your Order', 'Check AWB Status', 'Refund Policy', 'Privacy Policy'],
       });
     }
 
@@ -323,7 +323,7 @@ async function handleTrackingConversation(message) {
         source: 'tracking',
         intent: 'tracking',
         reply: 'I could not find that shipment. Please recheck the AWB number or order ID and try again.',
-        suggestions: ['Track Your Order', 'Check AWB Status', 'Order ID Status', 'Browse Collections'],
+        suggestions: ['Track Your Order', 'Check AWB Status', 'Refund Policy', 'Privacy Policy'],
       });
     }
 
@@ -391,7 +391,7 @@ async function createChatReply({ message, shopDomain }) {
       intent: 'catalog_lookup_failed',
       reply:
         'I could not load the store catalog right now. Please try again in a moment, or send an AWB number for live tracking.',
-      suggestions: ['Track my order', 'Browse collections', 'Find products', 'Shipping policy'],
+      suggestions: ['Track Your Order', 'Refund Policy', 'Privacy Policy', 'Terms of Service'],
     });
   }
 
