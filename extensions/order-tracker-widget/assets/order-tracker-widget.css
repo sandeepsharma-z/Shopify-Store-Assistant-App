@@ -12,8 +12,8 @@
   --shiprocket-accent-soft: #fff0e7;
   --shiprocket-shadow: 0 34px 70px rgba(18, 25, 33, 0.14);
   position: fixed;
-  left: 24px;
-  bottom: 24px;
+  right: 24px;
+  bottom: 34px;
   z-index: 9999;
   font-family: "Segoe UI", Arial, sans-serif;
   color: var(--shiprocket-text);
@@ -45,6 +45,8 @@
   cursor: pointer;
   transition: transform 0.2s ease, opacity 0.2s ease;
   animation: shiprocketLauncherFloat 4.8s ease-in-out infinite;
+
+   flex-direction: row-reverse;
 }
 
 .shiprocket-chat-launcher:hover {
@@ -154,7 +156,7 @@
 
 .shiprocket-chat-panel {
   position: absolute;
-  left: 0;
+  right: 0;
   bottom: 0;
   width: min(396px, calc(100vw - 48px));
   height: min(680px, 82vh);
@@ -1047,7 +1049,7 @@
   }
 
   .shiprocket-chat-launcher {
-    width: 100%;
+    width: 80%;
   }
 
   .shiprocket-chat-launcher-card {

@@ -14,16 +14,7 @@
     'Browse fresh collections',
     'Get live delivery updates',
   ];
-  const starterPrompts = [
-    'Track Your Order',
-    'Find Products',
-    'Browse Collections',
-    'Privacy Policy',
-    'Refund Policy',
-    'Terms of Service',
-    'Returns & Exchange',
-  ];
-
+ const starterPrompts = [];
   function parseJsonSafe(response) {
     return response.text().then(function toJson(text) {
       if (!text) {
