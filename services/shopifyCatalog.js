@@ -222,6 +222,30 @@ const FILLER_PATTERNS = [
   /\blatest\b/gi,
 ];
 
+const QUESTION_HINTS = [
+  'what',
+  'which',
+  'why',
+  'how',
+  'does',
+  'do',
+  'can',
+  'should',
+  'difference',
+  'compare',
+  'contains',
+  'contain',
+  'made of',
+  'good for',
+  'best for',
+  'about',
+  'details',
+  'describe',
+  'description',
+  'benefits',
+  'features',
+];
+
 function getStorefrontConfig(preferredShopDomain) {
   const runtime = buildRuntimeSettings(preferredShopDomain);
   const shopDomain = String(runtime.shopDomain || '')
@@ -463,6 +487,12 @@ function analyzeCatalogMessage(message) {
   );
   const hasExplicitProductHint = includesAny(lowered, PRODUCT_HINTS);
   const hasGenericDiscoveryHint = includesAny(lowered, GENERIC_DISCOVERY_HINTS);
+  const wantsDetails =
+    includesAny(lowered, QUESTION_HINTS) ||
+    /\?$/.test(normalized) ||
+    /\b(feature|features|benefit|benefits|material|flavor|taste|size|nicotine|contains|description|about)\b/i.test(
+      normalized,
+    );
   const wantsProducts =
     hasExplicitProductHint ||
     wantsRecommendations ||
@@ -483,6 +513,7 @@ function analyzeCatalogMessage(message) {
     wantsRecommendations,
     wantsStoreOverview,
     prefersCollections,
+    wantsDetails,
     searchTerm,
     ...priceFilters,
   };
@@ -589,6 +620,29 @@ function buildSearchTokens(request) {
     .filter((token) => token.length > 1);
 }
 
+function countWholeWordMatches(text, tokens) {
+  const comparable = ` ${String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ')} `;
+
+  if (!comparable.trim() || !tokens.length) {
+    return 0;
+  }
+
+  return tokens.reduce((score, token) => {
+    const pattern = new RegExp(`\\b${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    return score + (pattern.test(comparable) ? 1 : 0);
+  }, 0);
+}
+
+function countCoverage(text, tokens) {
+  const comparable = String(text || '').toLowerCase();
+
+  if (!comparable || !tokens.length) {
+    return 0;
+  }
+
+  return tokens.reduce((total, token) => total + (comparable.includes(token) ? 1 : 0), 0);
+}
+
 function scoreTextMatch(text, tokens) {
   const comparable = String(text || '').toLowerCase();
 
@@ -624,13 +678,21 @@ function rankProducts(products, request) {
     const leftScore =
       scoreTextMatch(left.title, tokens) * 3 +
       scoreTextMatch(left.handle, tokens) * 2 +
+      scoreTextMatch(left.description, tokens) * 2 +
       scoreTextMatch(left.vendor, tokens) +
-      scoreTextMatch(left.productType, tokens);
+      scoreTextMatch(left.productType, tokens) +
+      countWholeWordMatches(left.title, tokens) * 6 +
+      countWholeWordMatches(left.description, tokens) * 4 +
+      countCoverage(left.collections.join(' '), tokens) * 2;
     const rightScore =
       scoreTextMatch(right.title, tokens) * 3 +
       scoreTextMatch(right.handle, tokens) * 2 +
+      scoreTextMatch(right.description, tokens) * 2 +
       scoreTextMatch(right.vendor, tokens) +
-      scoreTextMatch(right.productType, tokens);
+      scoreTextMatch(right.productType, tokens) +
+      countWholeWordMatches(right.title, tokens) * 6 +
+      countWholeWordMatches(right.description, tokens) * 4 +
+      countCoverage(right.collections.join(' '), tokens) * 2;
 
     if (rightScore !== leftScore) {
       return rightScore - leftScore;
@@ -638,6 +700,41 @@ function rankProducts(products, request) {
 
     return (right.available === left.available) ? 0 : right.available ? 1 : -1;
   });
+}
+
+function buildDescriptionHighlights(product, request) {
+  const description = String(product?.description || '').trim();
+  const tokens = buildSearchTokens(request);
+
+  if (!description) {
+    return [];
+  }
+
+  const sentences = description
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  const ranked = sentences
+    .map((sentence) => ({
+      sentence,
+      score:
+        scoreTextMatch(sentence, tokens) * 2 +
+        countWholeWordMatches(sentence, tokens) * 4 +
+        countCoverage(sentence, tokens),
+    }))
+    .sort((left, right) => right.score - left.score);
+
+  const highlights = ranked
+    .filter((entry) => entry.score > 0)
+    .map((entry) => entry.sentence)
+    .slice(0, 2);
+
+  if (highlights.length) {
+    return highlights;
+  }
+
+  return [description.slice(0, 180) + (description.length > 180 ? '...' : '')];
 }
 
 function rankCollections(collections, request) {
@@ -721,8 +818,18 @@ function buildProductReply(products, request, shop) {
     return null;
   }
 
-  if (products.length === 1) {
-    const product = products[0];
+  const primaryProduct = products[0];
+  const primaryHighlights = buildDescriptionHighlights(primaryProduct, request);
+  const shouldUseDetailAnswer =
+    request.wantsDetails ||
+    (request.searchTerm &&
+      products.length &&
+      buildSearchTokens(request).length > 1 &&
+      countWholeWordMatches(primaryProduct.title, buildSearchTokens(request)) +
+        countWholeWordMatches(primaryProduct.description, buildSearchTokens(request)) >= 2);
+
+  if (products.length === 1 || shouldUseDetailAnswer) {
+    const product = primaryProduct;
     const details = [];
 
     if (product.price) {
@@ -747,14 +854,26 @@ function buildProductReply(products, request, shop) {
       details.push(`Collections: ${product.collections.slice(0, 2).join(', ')}`);
     }
 
-    if (product.description) {
-      details.push(`About: ${product.description.slice(0, 140)}${product.description.length > 140 ? '...' : ''}`);
+    if (primaryHighlights.length) {
+      details.push(`About: ${primaryHighlights.join(' ')}`);
+    }
+
+    const alternativeMatches =
+      products.length > 1
+        ? products
+            .slice(1, 4)
+            .map((item) => item.title)
+            .filter(Boolean)
+        : [];
+
+    if (alternativeMatches.length) {
+      details.push(`Other close matches: ${alternativeMatches.join(', ')}`);
     }
 
     return {
       success: true,
       source: 'catalog',
-      intent: 'product_lookup',
+      intent: shouldUseDetailAnswer ? 'product_details' : 'product_lookup',
       reply: `I found ${product.title}. ${details.join('. ')}.`,
       suggestions: DEFAULT_CATALOG_SUGGESTIONS,
       catalog: buildCatalogEnvelope('products', request, shop, [product]),

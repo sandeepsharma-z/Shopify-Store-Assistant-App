@@ -1049,12 +1049,16 @@
   }
 
   .shiprocket-chat-launcher {
-    width: 80%;
+    width: 100%;
+    max-width: 100%;
+    gap: 12px;
   }
 
   .shiprocket-chat-launcher-card {
     min-width: 0;
     flex: 1 1 auto;
+    width: calc(100% - 74px);
+    max-width: calc(100% - 74px);
   }
 
   .shiprocket-chat-panel {
@@ -1186,6 +1190,8 @@
 
   .shiprocket-chat-launcher {
     gap: 10px;
+    width: 100%;
+    max-width: 100%;
   }
 
   .shiprocket-chat-launcher-icon {
@@ -1196,6 +1202,8 @@
 
   .shiprocket-chat-launcher-card {
     min-width: 0;
+    width: calc(100% - 66px);
+    max-width: calc(100% - 66px);
     padding: 12px 14px;
     border-radius: 18px;
   }

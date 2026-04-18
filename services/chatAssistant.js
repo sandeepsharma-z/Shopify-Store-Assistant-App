@@ -1,5 +1,9 @@
 const { fetchTracking } = require('./shiprocket');
-const { DEFAULT_CATALOG_SUGGESTIONS, createCatalogReply } = require('./shopifyCatalog');
+const {
+  DEFAULT_CATALOG_SUGGESTIONS,
+  analyzeCatalogMessage,
+  createCatalogReply,
+} = require('./shopifyCatalog');
 const { createSupportReply } = require('./storeSupport');
 
 function normalizeMessage(message) {
@@ -167,6 +171,7 @@ function classifyMessage(message) {
   const trackingScore = countKeywordHits(text, TRACKING_KEYWORDS);
   const supportScore = countKeywordHits(text, SUPPORT_KEYWORDS);
   const catalogScore = countKeywordHits(text, CATALOG_KEYWORDS);
+  const catalogRequest = analyzeCatalogMessage(message);
   const hasReference =
     Boolean(extractExplicitOrderId(message)) ||
     Boolean(extractLabeledAwb(message)) ||
@@ -175,6 +180,16 @@ function classifyMessage(message) {
 
   if (hasReference || trackingScore > Math.max(supportScore, catalogScore)) {
     return 'tracking';
+  }
+
+  if (
+    catalogRequest.searchTerm &&
+    catalogRequest.searchTerm.split(/\s+/).length >= 2 &&
+    !/\b(store|brand|about us|who are you|contact|support|customer care|privacy|refund|return|exchange|shipping|delivery|terms|payment|cod|cancel|cancellation)\b/.test(
+      text,
+    )
+  ) {
+    return 'catalog';
   }
 
   if (supportScore > Math.max(trackingScore, catalogScore)) {
@@ -356,10 +371,7 @@ async function createChatReply({ message, shopDomain }) {
           message,
           shopDomain,
         })
-      : createSupportReply({
-          message,
-          shopDomain,
-        });
+      : null;
 
   if (supportReply) {
     return buildResponse(supportReply);
