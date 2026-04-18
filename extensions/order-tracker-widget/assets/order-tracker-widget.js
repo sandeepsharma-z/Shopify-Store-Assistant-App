@@ -391,6 +391,29 @@
     return formatLabelText(value || 'Shipment update');
   }
 
+  function buildAssistantReplyText(payload) {
+    if (!payload || !payload.tracking || typeof payload.reply !== 'string') {
+      return payload && typeof payload.reply === 'string' ? payload.reply : '';
+    }
+
+    const tracking = payload.tracking;
+    const normalizedStatus = formatSummaryStatus(tracking.status).toLowerCase();
+    let reply = String(payload.reply).trim();
+
+    if (normalizedStatus === 'delivered') {
+      reply = reply.replace(/\s*Expected delivery:[^.]+\./i, '');
+
+      if (tracking.delivered_on && !/Delivered on:/i.test(reply)) {
+        reply = reply.replace(
+          /\s*Updated:/i,
+          ' Delivered on: ' + tracking.delivered_on + '. Updated:',
+        );
+      }
+    }
+
+    return reply.replace(/\s{2,}/g, ' ').trim();
+  }
+
   function getTimelineStateClass(value) {
     const status = formatSummaryStatus(value).toLowerCase();
 
@@ -534,10 +557,10 @@
     const isCancelledState = normalizedStatus.toLowerCase() === 'cancelled';
     const summaryItems = [];
 
-    if (tracking.expected_delivery && !isCancelledState) {
+    if ((tracking.delivered_on || tracking.expected_delivery) && !isCancelledState) {
       summaryItems.push([
         isDeliveredState ? 'Delivered on' : 'Expected delivery',
-        tracking.expected_delivery,
+        tracking.delivered_on || tracking.expected_delivery,
       ]);
     }
 
@@ -573,7 +596,7 @@
       submetaValues.push('Location: ' + tracking.last_location);
     }
 
-    if (tracking.expected_delivery) {
+    if (tracking.expected_delivery && !isDeliveredState && !isCancelledState) {
       submetaValues.push('Expected: ' + tracking.expected_delivery);
     }
 
@@ -876,7 +899,7 @@
       options && Object.prototype.hasOwnProperty.call(options, 'text')
         ? options.text
         : entry.role === 'assistant'
-          ? entry.payload.reply
+          ? buildAssistantReplyText(entry.payload)
           : entry.payload.text;
     const text = createElement(
       'p',

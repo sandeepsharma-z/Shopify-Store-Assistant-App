@@ -243,6 +243,20 @@ function buildRecentUpdates(activities) {
     });
 }
 
+function findFirstActivityByStatus(activities, predicate) {
+  if (!Array.isArray(activities) || typeof predicate !== 'function') {
+    return null;
+  }
+
+  for (const activity of activities) {
+    if (predicate(activity)) {
+      return activity;
+    }
+  }
+
+  return null;
+}
+
 function sortUpdatesByDateDesc(left, right) {
   const leftTimestamp = Date.parse(left.raw_date || left.date || '');
   const rightTimestamp = Date.parse(right.raw_date || right.date || '');
@@ -343,7 +357,22 @@ function extractTrackingSummary(payload, lookup = {}) {
 
   const status = normalizeStatus(rawStatus);
   const lastLocation = normalizeLocation(rawLocation);
-  const expectedDelivery = formatHumanDate(rawExpectedDelivery);
+  const deliveredActivity = findFirstActivityByStatus(activities, (activity) => {
+    const normalized = String(activity?.normalized_status || '').toLowerCase();
+    return normalized === 'delivered' || normalized === 'return delivered';
+  });
+  const deliveredOn = formatHumanDate(
+    firstNonEmptyString([
+      deliveredActivity?.date,
+      root.delivered_date,
+      root.delivery_date,
+      payload?.delivered_date,
+    ]),
+  );
+  const expectedDelivery =
+    status === 'delivered' || status === 'return delivered' || status === 'cancelled'
+      ? null
+      : formatHumanDate(rawExpectedDelivery);
   const courierName = extractCourierName(payload);
   const lastUpdateAt = formatHumanDateTime(
     firstNonEmptyString([
@@ -372,6 +401,7 @@ function extractTrackingSummary(payload, lookup = {}) {
     status,
     last_location: lastLocation,
     expected_delivery: expectedDelivery,
+    delivered_on: deliveredOn,
     courier_name: courierName,
     latest_event: latestEvent,
     last_update_at: lastUpdateAt,
@@ -381,6 +411,7 @@ function extractTrackingSummary(payload, lookup = {}) {
       status,
       lastLocation,
       expectedDelivery,
+      deliveredOn,
       courierName,
       lastUpdateAt,
     }),

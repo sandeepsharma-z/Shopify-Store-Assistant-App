@@ -147,12 +147,13 @@ function getStatusExplanation(status) {
   return explanationMap[normalized] || null;
 }
 
-function buildReply({ status, lastLocation, expectedDelivery, courierName, lastUpdateAt }) {
+function buildReply({ status, lastLocation, expectedDelivery, deliveredOn, courierName, lastUpdateAt }) {
   let reply;
   const statusExplanation = getStatusExplanation(status);
+  const normalizedStatus = String(status || '').toLowerCase();
   const shouldShowExpectedDelivery =
     Boolean(expectedDelivery) &&
-    !['delivered', 'return delivered', 'cancelled'].includes(String(status || '').toLowerCase());
+    !['delivered', 'return delivered', 'cancelled'].includes(normalizedStatus);
 
   if (status === 'delivered') {
     reply = 'Your order has been delivered.';
@@ -176,6 +177,10 @@ function buildReply({ status, lastLocation, expectedDelivery, courierName, lastU
 
   if (courierName) {
     reply += ` Courier partner: ${courierName}.`;
+  }
+
+  if (normalizedStatus === 'delivered' && deliveredOn) {
+    reply += ` Delivered on: ${deliveredOn}.`;
   }
 
   if (shouldShowExpectedDelivery) {
