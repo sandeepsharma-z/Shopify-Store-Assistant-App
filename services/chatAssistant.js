@@ -18,6 +18,80 @@ function hasDigits(value) {
   return /\d/.test(value);
 }
 
+const TRACKING_KEYWORDS = [
+  'track',
+  'tracking',
+  'awb',
+  'shipment',
+  'courier',
+  'where is my order',
+  'order status',
+  'parcel',
+  'delivery status',
+  'consignment',
+  'tracking batao',
+  'status batao',
+  'kahan hai',
+  'kaha hai',
+  'kab milega',
+  'kidhar hai',
+  'mera order',
+  'my order',
+  'latest update',
+];
+
+const SUPPORT_KEYWORDS = [
+  'shipping',
+  'delivery',
+  'returns',
+  'refund',
+  'exchange',
+  'replacement',
+  'payment',
+  'cod',
+  'cash on delivery',
+  'contact',
+  'support',
+  'customer care',
+  'phone',
+  'email',
+  'whatsapp',
+  'cancel',
+  'cancellation',
+  'address change',
+  'change address',
+  'about',
+  'brand',
+  'store details',
+];
+
+const CATALOG_KEYWORDS = [
+  'product',
+  'products',
+  'collection',
+  'collections',
+  'category',
+  'categories',
+  'catalog',
+  'price',
+  'cost',
+  'stock',
+  'available',
+  'availability',
+  'buy',
+  'shop',
+  'show',
+  'find',
+  'recommend',
+  'suggest',
+  'best',
+  'popular',
+  'trending',
+  'latest',
+  'new arrival',
+  'new arrivals',
+];
+
 function buildResponse({
   success = true,
   source,
@@ -84,22 +158,40 @@ function detectSmallTalk(message) {
   return null;
 }
 
+function countKeywordHits(text, keywords) {
+  return keywords.reduce((total, keyword) => total + (text.includes(keyword) ? 1 : 0), 0);
+}
+
+function classifyMessage(message) {
+  const text = toComparableText(message);
+  const trackingScore = countKeywordHits(text, TRACKING_KEYWORDS);
+  const supportScore = countKeywordHits(text, SUPPORT_KEYWORDS);
+  const catalogScore = countKeywordHits(text, CATALOG_KEYWORDS);
+  const hasReference =
+    Boolean(extractExplicitOrderId(message)) ||
+    Boolean(extractLabeledAwb(message)) ||
+    Boolean(extractStandaloneReference(message)) ||
+    Boolean(extractGenericTrackingToken(message));
+
+  if (hasReference || trackingScore > Math.max(supportScore, catalogScore)) {
+    return 'tracking';
+  }
+
+  if (supportScore > Math.max(trackingScore, catalogScore)) {
+    return 'support';
+  }
+
+  if (catalogScore > 0) {
+    return 'catalog';
+  }
+
+  return 'fallback';
+}
+
 function isLikelyTrackingMessage(message) {
   const text = toComparableText(message);
 
-  return [
-    'track',
-    'tracking',
-    'awb',
-    'shipment',
-    'courier',
-    'where is my order',
-    'order status',
-    'parcel',
-    'status batao',
-    'tracking batao',
-    'kahan hai',
-  ].some((keyword) => text.includes(keyword));
+  return TRACKING_KEYWORDS.some((keyword) => text.includes(keyword));
 }
 
 async function tryTrackingCandidates(candidates) {
@@ -231,6 +323,7 @@ async function handleTrackingConversation(message) {
 }
 
 async function createChatReply({ message, shopDomain }) {
+  const primaryIntent = classifyMessage(message);
   const trackingReply = await handleTrackingConversation(message);
 
   if (trackingReply) {
@@ -257,10 +350,16 @@ async function createChatReply({ message, shopDomain }) {
     });
   }
 
-  const supportReply = createSupportReply({
-    message,
-    shopDomain,
-  });
+  const supportReply =
+    primaryIntent === 'support' || primaryIntent === 'fallback'
+      ? createSupportReply({
+          message,
+          shopDomain,
+        })
+      : createSupportReply({
+          message,
+          shopDomain,
+        });
 
   if (supportReply) {
     return buildResponse(supportReply);

@@ -129,13 +129,6 @@ const PRODUCT_HINTS = [
   'show',
   'find',
   'search',
-  'new arrival',
-  'new arrivals',
-  'latest',
-  'bestseller',
-  'best seller',
-  'popular',
-  'recommend',
 ];
 
 const COLLECTION_HINTS = ['collection', 'collections', 'category', 'categories', 'range', 'ranges'];
@@ -164,6 +157,8 @@ const RECOMMENDATION_HINTS = [
   'new arrivals',
 ];
 
+const GENERIC_DISCOVERY_HINTS = ['show', 'find', 'browse', 'search', 'latest', 'new arrivals'];
+
 const FILLER_PATTERNS = [
   /\bdo you have\b/gi,
   /\bshow me\b/gi,
@@ -175,15 +170,28 @@ const FILLER_PATTERNS = [
   /\blist\b/gi,
   /\btell me about\b/gi,
   /\bwhich is\b/gi,
+  /\bwhich is the\b/gi,
+  /\bwhich\b/gi,
+  /\bwhat\b/gi,
+  /\bis\b/gi,
   /\bwhat is\b/gi,
   /\bwhich are\b/gi,
   /\bwhat are\b/gi,
   /\bis the\b/gi,
+  /\bthe best\b/gi,
+  /\bbest\b/gi,
   /\blooking for\b/gi,
   /\bi want\b/gi,
   /\bi need\b/gi,
   /\bcan you\b/gi,
+  /\bcan u\b/gi,
   /\bplease\b/gi,
+  /\bkya hai\b/gi,
+  /\bkya h\b/gi,
+  /\bhai\b/gi,
+  /\bkaun sa\b/gi,
+  /\bkon sa\b/gi,
+  /\bwala\b/gi,
   /\bproducts?\b/gi,
   /\bitems?\b/gi,
   /\bcollections?\b/gi,
@@ -448,11 +456,14 @@ function analyzeCatalogMessage(message) {
   const wantsPrice = /\b(?:price|cost|under|below|over|above|more than|less than)\b/i.test(
     normalized,
   );
+  const hasExplicitProductHint = includesAny(lowered, PRODUCT_HINTS);
+  const hasGenericDiscoveryHint = includesAny(lowered, GENERIC_DISCOVERY_HINTS);
   const wantsProducts =
-    includesAny(lowered, PRODUCT_HINTS) ||
+    hasExplicitProductHint ||
     wantsRecommendations ||
     wantsStoreOverview ||
     !wantsCollections;
+  const prefersCollections = wantsCollections && (!hasExplicitProductHint || hasGenericDiscoveryHint);
   const wantsOverview = wantsStoreOverview || normalized.length <= 16;
   const searchTerm = cleanCatalogTerm(normalized);
   const priceFilters = extractPriceFilters(normalized);
@@ -466,6 +477,7 @@ function analyzeCatalogMessage(message) {
     wantsOverview,
     wantsRecommendations,
     wantsStoreOverview,
+    prefersCollections,
     searchTerm,
     ...priceFilters,
   };
@@ -770,7 +782,7 @@ async function createCatalogReply({ message, shopDomain }) {
     return buildOverviewReply(shop, products, collections, request);
   }
 
-  if (request.wantsCollections && !request.wantsProducts) {
+  if (request.prefersCollections) {
     return buildCollectionReply(collections, request, shop) || buildNoResultsReply(request, shop);
   }
 
