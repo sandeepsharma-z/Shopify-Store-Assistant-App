@@ -347,6 +347,47 @@
   }
 
   function formatSummaryStatus(value) {
+    const text = String(value || '').toLowerCase();
+
+    if (!text) {
+      return 'Shipment update';
+    }
+
+    if (text.indexOf('delivered') !== -1) {
+      return 'Delivered';
+    }
+
+    if (
+      text.indexOf('out for delivery') !== -1 ||
+      text.indexOf('ofd') !== -1
+    ) {
+      return 'Out for delivery';
+    }
+
+    if (
+      text.indexOf('transit') !== -1 ||
+      text.indexOf('outscan') !== -1 ||
+      text.indexOf('inscan') !== -1 ||
+      text.indexOf('network') !== -1 ||
+      text.indexOf('hub') !== -1 ||
+      text.indexOf('bagged') !== -1 ||
+      text.indexOf('manifested') !== -1
+    ) {
+      return 'In transit';
+    }
+
+    if (text.indexOf('pickup') !== -1 || text.indexOf('picked up') !== -1) {
+      return 'Picked up';
+    }
+
+    if (text.indexOf('rto') !== -1 || text.indexOf('return') !== -1) {
+      return 'Returning';
+    }
+
+    if (text.indexOf('cancel') !== -1) {
+      return 'Cancelled';
+    }
+
     return formatLabelText(value || 'Shipment update');
   }
 
