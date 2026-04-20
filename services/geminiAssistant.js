@@ -55,6 +55,41 @@ function extractDescriptionHighlights(text, maxItems = 3) {
     .map((sentence) => truncate(sentence, 220));
 }
 
+function detectReplyLanguage(message) {
+  const text = String(message || '').trim().toLowerCase();
+
+  if (!text) {
+    return 'english';
+  }
+
+  const hinglishMarkers = [
+    'hai',
+    'kya',
+    'mera',
+    'mujhe',
+    'batao',
+    'bhai',
+    'kab',
+    'kidhar',
+    'kaise',
+    'kar do',
+    'karna',
+    'mil gaya',
+    'nahi',
+    'haan',
+    'namaste',
+    'shukriya',
+  ];
+
+  const matched = hinglishMarkers.filter((word) => text.includes(word)).length;
+
+  if (matched >= 2) {
+    return 'hinglish';
+  }
+
+  return 'english';
+}
+
 function getGeminiConfig(shopDomain) {
   const runtime = buildRuntimeSettings(shopDomain);
   const apiKey = firstText(runtime.geminiApiKey || process.env.GEMINI_API_KEY);
@@ -84,7 +119,9 @@ function formatCatalogItems(catalog) {
       const parts = [
         `${index + 1}. ${item.title || 'Untitled item'}`,
         item.price ? `Price: ${item.price}` : null,
-        typeof item.available === 'boolean' ? `Availability: ${item.available ? 'In stock' : 'Out of stock'}` : null,
+        typeof item.available === 'boolean'
+          ? `Availability: ${item.available ? 'In stock' : 'Out of stock'}`
+          : null,
         item.vendor ? `Brand: ${item.vendor}` : null,
         item.productType ? `Type: ${item.productType}` : null,
         Array.isArray(item.collections) && item.collections.length
@@ -178,6 +215,7 @@ function buildPrompt({
   supportConfig,
   catalogReply,
   storeKnowledge,
+  replyLanguage,
 }) {
   const supportSummary = [
     supportConfig.storeName ? `Store name: ${supportConfig.storeName}` : null,
@@ -228,9 +266,13 @@ function buildPrompt({
       'Fallback questions should use the closest grounded store information and keep the answer brief.',
   };
 
+  const languageGuide =
+    replyLanguage === 'hinglish'
+      ? 'Reply in simple Hinglish using Roman script. Keep product names, policy names, and technical terms in English when needed.'
+      : 'Reply in natural English only.';
+
   return `
 You are a grounded Shopify storefront assistant.
-Answer in English only.
 Use only the supplied store context.
 Do not invent facts, prices, discounts, stock, policies, shipping promises, delivery dates, product specs, or tracking updates.
 If the exact answer is not present, say that clearly and give the closest grounded next step.
@@ -240,12 +282,17 @@ When several items match, mention the best few matches in a natural sentence.
 When the user asks about policies, summarize the actual policy wording from context instead of giving generic ecommerce advice.
 When the user asks about the store, brand, or support, use only the saved support details and page excerpts below.
 Never mention Gemini, prompts, internal context, scraping, backend logic, configuration, or hidden data structures.
+Do not repeat the user's question.
+Do not sound robotic.
 
 Primary intent:
 ${primaryIntent || 'fallback'}
 
 Intent rule:
 ${strictIntentGuide[primaryIntent] || strictIntentGuide.fallback}
+
+Reply style:
+${languageGuide}
 
 Parsed request notes:
 ${formatRequestIntentSummary(message)}
@@ -278,16 +325,6 @@ Answer requirements:
 - If nothing exact matches, say so and suggest a nearby product, collection, policy page, or tracking lookup.
 - Do not start with "Based on the provided context" or similar filler.
 - Sound like a polished store assistant, not like an AI tool.
-
-Good answer examples:
-1. Product attribute query:
-"The closest match is LIT ELITE PACK PINK because its description mentions premium cotton fabric and oversized streetwear styling. It is currently in stock at ₹320 - ₹599. If you want, I can also show the other closest Lite Elite variants."
-
-2. Policy query:
-"Refund Policy: Returns are accepted within 3 days, while jewellery, rugs, and frames are non-returnable unless they arrive damaged or incorrect. Sale items are final sale."
-
-3. No exact match query:
-"I could not find an exact product matching that material request, but the closest result is NO SELF CONTROL T-SHIRT. If you want, I can also show similar T-shirts from the same collection."
 `.trim();
 }
 
@@ -317,6 +354,7 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
   const startedAt = Date.now();
   const supportConfig = getSupportConfig(shopDomain);
   const supportReply = createSupportReply({ message, shopDomain });
+  const replyLanguage = detectReplyLanguage(message);
 
   let catalogReply = null;
 
@@ -332,6 +370,7 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
   }
 
   const storeKnowledge = await getStoreKnowledge(shopDomain);
+
   const prompt = buildPrompt({
     message,
     shopDomain,
@@ -340,6 +379,7 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
     supportConfig,
     catalogReply,
     storeKnowledge,
+    replyLanguage,
   });
 
   try {
@@ -349,7 +389,8 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
         systemInstruction: {
           parts: [
             {
-              text: 'You are a grounded Shopify storefront assistant. Answer in English only and only from the provided store context.',
+              text:
+                'You are a grounded Shopify storefront assistant. Use only the supplied store context. Be concise, helpful, and do not invent facts.',
             },
           ],
         },
@@ -384,6 +425,7 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
       durationMs: Date.now() - startedAt,
       usedCatalogContext: Boolean(catalogReply?.catalog),
       usedStoreKnowledge: Boolean(storeKnowledge?.pages?.length),
+      replyLanguage,
     });
 
     return {
@@ -399,7 +441,9 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
         supportReply?.suggestions ||
         DEFAULT_CATALOG_SUGGESTIONS,
       catalog:
-        catalogReply && catalogReply.intent !== 'catalog_not_configured' ? catalogReply.catalog : null,
+        catalogReply && catalogReply.intent !== 'catalog_not_configured'
+          ? catalogReply.catalog
+          : null,
     };
   } catch (error) {
     logger.warn('Gemini request failed', {
@@ -407,6 +451,7 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
       message: error.message,
       durationMs: Date.now() - startedAt,
     });
+
     return null;
   }
 }

@@ -155,7 +155,7 @@ function buildResponse({
     source,
     intent,
     reply,
-    suggestions: [...new Set(suggestions.filter(Boolean))].slice(0, 4),
+    suggestions: [...new Set((suggestions || []).filter(Boolean))].slice(0, 4),
     ...(tracking ? { tracking } : {}),
     ...(catalog ? { catalog } : {}),
   };
@@ -189,7 +189,6 @@ function extractLabeledAwb(message) {
 
 function extractGenericTrackingToken(message) {
   const tokens = normalizeMessage(message).match(/[A-Za-z0-9-]{6,40}/g) || [];
-
   return tokens.find((token) => hasDigits(token)) || null;
 }
 
@@ -220,6 +219,7 @@ function classifyMessage(message) {
   const hasCatalogQuestionPattern = CATALOG_QUESTION_PATTERNS.some((pattern) =>
     pattern.test(message),
   );
+
   const hasReference =
     Boolean(extractExplicitOrderId(message)) ||
     Boolean(extractLabeledAwb(message)) ||
@@ -264,10 +264,7 @@ function classifyMessage(message) {
     return 'catalog';
   }
 
-  if (
-    hasCatalogQuestionPattern &&
-    (catalogRequest.searchTerm || catalogScore > 0)
-  ) {
+  if (hasCatalogQuestionPattern && (catalogRequest.searchTerm || catalogScore > 0)) {
     return 'catalog';
   }
 
@@ -284,7 +281,6 @@ function classifyMessage(message) {
 
 function isLikelyTrackingMessage(message) {
   const text = toComparableText(message);
-
   return TRACKING_KEYWORDS.some((keyword) => text.includes(keyword));
 }
 
@@ -294,11 +290,7 @@ async function tryTrackingCandidates(candidates) {
   for (const candidate of candidates) {
     try {
       const tracking = await fetchTracking(candidate);
-
-      return {
-        tracking,
-        candidate,
-      };
+      return { tracking, candidate };
     } catch (error) {
       lastError = error;
     }
@@ -327,8 +319,12 @@ async function handleTrackingConversation(message) {
   const labeledAwb = extractLabeledAwb(message);
   const standaloneReference = extractStandaloneReference(message);
   const genericToken = extractGenericTrackingToken(message);
+
   const shouldTrack =
-    explicitOrderId || labeledAwb || standaloneReference || (isLikelyTrackingMessage(message) && genericToken);
+    explicitOrderId ||
+    labeledAwb ||
+    standaloneReference ||
+    (isLikelyTrackingMessage(message) && genericToken);
 
   if (!shouldTrack) {
     if (isLikelyTrackingMessage(message)) {
@@ -418,12 +414,14 @@ async function handleTrackingConversation(message) {
 
 async function createChatReply({ message, shopDomain }) {
   const primaryIntent = classifyMessage(message);
-  const trackingReply = await handleTrackingConversation(message);
 
+  // 1) Tracking always first
+  const trackingReply = await handleTrackingConversation(message);
   if (trackingReply) {
     return trackingReply;
   }
 
+  // 2) Small talk
   const smallTalkIntent = detectSmallTalk(message);
 
   if (smallTalkIntent === 'greeting') {
@@ -432,6 +430,7 @@ async function createChatReply({ message, shopDomain }) {
       intent: 'greeting',
       reply:
         'Hi there. I can help with live order tracking, product search, collection discovery, price checks, stock availability, shipping questions, returns, payments, and store contact details. Send your AWB number, order ID, product keyword, or question directly.',
+      suggestions: ['Track Your Order', 'Show Best Sellers', 'Shipping Policy', 'Contact Support'],
     });
   }
 
@@ -441,52 +440,44 @@ async function createChatReply({ message, shopDomain }) {
       intent: 'thanks',
       reply:
         'Happy to help. Send another AWB number, order ID, product keyword, collection name, or support question whenever you need.',
+      suggestions: ['Track Your Order', 'Show Best Sellers', 'Refund Policy', 'Contact Support'],
     });
   }
 
-  let deterministicCatalogReply = null;
+  // 3) Deterministic support first
+  if (primaryIntent === 'support') {
+    const supportReply = createSupportReply({
+      message,
+      shopDomain,
+    });
 
-  if (primaryIntent === 'catalog' || primaryIntent === 'fallback') {
-    try {
-      deterministicCatalogReply = await createCatalogReply({
-        message,
-        shopDomain,
-      });
-    } catch (error) {
-      deterministicCatalogReply = null;
+    if (supportReply) {
+      return buildResponse(supportReply);
     }
   }
 
-  const geminiReply = await createGeminiReply({
-    message,
-    shopDomain,
-    primaryIntent,
-  });
-
-  if (geminiReply) {
-    return buildResponse(geminiReply);
-  }
-
-  const supportReply =
-    primaryIntent === 'support' || primaryIntent === 'fallback'
-      ? createSupportReply({
-          message,
-          shopDomain,
-        })
-      : null;
-
-  if (supportReply) {
-    return buildResponse(supportReply);
-  }
-
-  let catalogReply = deterministicCatalogReply;
-
-  if (!catalogReply) {
+  // 4) Deterministic catalog first
+  if (primaryIntent === 'catalog') {
     try {
-      catalogReply = await createCatalogReply({
+      const catalogReply = await createCatalogReply({
         message,
         shopDomain,
       });
+
+      if (catalogReply?.intent === 'catalog_not_configured') {
+        return buildResponse({
+          success: true,
+          source: 'faq',
+          intent: 'assistant_fallback',
+          reply:
+            'I can help with live shipment tracking right now. For products and collections, connect SHOPIFY_STORE_DOMAIN and SHOPIFY_STOREFRONT_ACCESS_TOKEN on the backend. You can also ask about shipping, returns, payments, and support details.',
+          suggestions: ['Track my order', 'Check AWB status', 'Shipping policy', 'Contact support'],
+        });
+      }
+
+      if (catalogReply) {
+        return buildResponse(catalogReply);
+      }
     } catch (error) {
       return buildResponse({
         success: false,
@@ -499,21 +490,43 @@ async function createChatReply({ message, shopDomain }) {
     }
   }
 
-  if (catalogReply.intent === 'catalog_not_configured') {
-    return buildResponse({
-      success: true,
-      source: 'faq',
-      intent: 'assistant_fallback',
-      reply:
-        'I can help with live shipment tracking right now. For products and collections, connect SHOPIFY_STORE_DOMAIN and SHOPIFY_STOREFRONT_ACCESS_TOKEN on the backend. You can also ask about shipping, returns, payments, and support details.',
-      suggestions: ['Track my order', 'Check AWB status', 'Shipping policy', 'Contact support'],
+  // 5) Fallback support for mixed or unclear cases
+  if (primaryIntent === 'fallback') {
+    const supportReply = createSupportReply({
+      message,
+      shopDomain,
     });
+
+    if (supportReply && supportReply.intent !== 'assistant_fallback') {
+      return buildResponse(supportReply);
+    }
+
+    try {
+      const catalogReply = await createCatalogReply({
+        message,
+        shopDomain,
+      });
+
+      if (catalogReply && catalogReply.intent !== 'catalog_not_configured') {
+        return buildResponse(catalogReply);
+      }
+    } catch (error) {
+      // ignore and continue to Gemini fallback
+    }
   }
 
-  if (catalogReply) {
-    return buildResponse(catalogReply);
+  // 6) Gemini only as final fallback / polish layer
+  const geminiReply = await createGeminiReply({
+    message,
+    shopDomain,
+    primaryIntent,
+  });
+
+  if (geminiReply) {
+    return buildResponse(geminiReply);
   }
 
+  // 7) Final hard fallback
   return buildResponse({
     success: true,
     source: 'faq',
