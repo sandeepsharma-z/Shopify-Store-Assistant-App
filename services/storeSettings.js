@@ -26,6 +26,10 @@ const SETTINGS_FIELDS = [
 ];
 
 const SENSITIVE_FIELDS = new Set(['shiprocketPassword', 'storefrontAccessToken', 'geminiApiKey']);
+let volatileStore = {
+  version: 1,
+  shops: {},
+};
 
 function firstText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -45,6 +49,10 @@ function ensureStoreSettingsDirectory() {
   const filePath = getStoreSettingsFilePath();
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   return filePath;
+}
+
+function isReadonlyFsError(error) {
+  return ['EROFS', 'EPERM', 'EACCES', 'ENOENT'].includes(error?.code);
 }
 
 function getEncryptionSecret() {
@@ -114,7 +122,21 @@ function decryptValue(payload) {
 }
 
 function readStore() {
-  const filePath = ensureStoreSettingsDirectory();
+  let filePath;
+
+  try {
+    filePath = ensureStoreSettingsDirectory();
+  } catch (error) {
+    if (isReadonlyFsError(error)) {
+      logger.warn('Store settings file path is not writable, using volatile store', {
+        message: error.message,
+        filePath: getStoreSettingsFilePath(),
+      });
+      return volatileStore;
+    }
+
+    throw error;
+  }
 
   if (!fs.existsSync(filePath)) {
     return {
@@ -140,6 +162,14 @@ function readStore() {
       shops: parsed && typeof parsed.shops === 'object' && parsed.shops ? parsed.shops : {},
     };
   } catch (error) {
+    if (isReadonlyFsError(error)) {
+      logger.warn('Failed to read store settings file, using volatile store', {
+        filePath,
+        message: error.message,
+      });
+      return volatileStore;
+    }
+
     logger.error('Failed to read store settings file', {
       filePath,
       message: error.message,
@@ -153,11 +183,35 @@ function readStore() {
 }
 
 function writeStore(store) {
-  const filePath = ensureStoreSettingsDirectory();
+  let filePath;
+
+  try {
+    filePath = ensureStoreSettingsDirectory();
+  } catch (error) {
+    if (isReadonlyFsError(error)) {
+      volatileStore = store;
+      logger.warn('Store settings file path is not writable, using volatile store', {
+        message: error.message,
+        filePath: getStoreSettingsFilePath(),
+      });
+      return;
+    }
+
+    throw error;
+  }
 
   try {
     fs.writeFileSync(filePath, JSON.stringify(store, null, 2), 'utf8');
   } catch (error) {
+    if (isReadonlyFsError(error)) {
+      volatileStore = store;
+      logger.warn('Failed to persist store settings file, using volatile store', {
+        filePath,
+        message: error.message,
+      });
+      return;
+    }
+
     logger.error('Failed to write store settings file', {
       filePath,
       message: error.message,
