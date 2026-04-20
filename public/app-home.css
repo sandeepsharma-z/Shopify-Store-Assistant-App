@@ -164,6 +164,10 @@ body {
   gap: 14px;
 }
 
+.app-home-form-grid.is-single {
+  grid-template-columns: 1fr;
+}
+
 .app-home-form label {
   display: grid;
   gap: 7px;

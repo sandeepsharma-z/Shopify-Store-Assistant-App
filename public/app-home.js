@@ -13,8 +13,6 @@
   const alertNode = document.getElementById('app-home-alert');
   const metaNode = document.getElementById('app-home-meta');
   const saveButton = document.getElementById('app-home-save-button');
-  const passwordHint = document.getElementById('shiprocketPasswordHint');
-  const storefrontHint = document.getElementById('storefrontTokenHint');
   const geminiHint = document.getElementById('geminiApiKeyHint');
 
   function getField(id) {
@@ -44,29 +42,7 @@
     const settings = (payload && payload.settings) || {};
 
     getField('shopDomain').value = payload && payload.shopDomain ? payload.shopDomain : config.shopDomain || '';
-    getField('shiprocketEmail').value = settings.shiprocketEmail || '';
-    getField('storeName').value = settings.storeName || '';
-    getField('supportEmail').value = settings.supportEmail || '';
-    getField('supportPhone').value = settings.supportPhone || '';
-    getField('supportWhatsapp').value = settings.supportWhatsapp || '';
-    getField('supportHours').value = settings.supportHours || '';
-    getField('shippingPolicy').value = settings.shippingPolicy || '';
-    getField('returnPolicy').value = settings.returnPolicy || '';
-    getField('codPolicy').value = settings.codPolicy || '';
-    getField('cancellationPolicy').value = settings.cancellationPolicy || '';
-    getField('orderProcessingTime').value = settings.orderProcessingTime || '';
-    getField('contactUrl').value = settings.contactUrl || '';
-    getField('aboutText').value = settings.aboutText || '';
-    getField('shiprocketPassword').value = '';
-    getField('storefrontAccessToken').value = '';
     getField('geminiApiKey').value = '';
-
-    passwordHint.textContent = settings.hasShiprocketPassword
-      ? 'A password is already saved. Leave blank to keep it.'
-      : 'No Shiprocket password saved yet.';
-    storefrontHint.textContent = settings.hasStorefrontAccessToken
-      ? 'A storefront token is already saved. Leave blank to keep it.'
-      : 'No storefront token saved yet.';
     geminiHint.textContent = settings.hasGeminiApiKey
       ? 'A Gemini API key is already saved. Leave blank to keep it.'
       : 'No Gemini API key saved yet.';
@@ -137,22 +113,7 @@
       shopDomain: getField('shopDomain').value.trim(),
       embedded: config.embeddedAdminContext ? '1' : '0',
       settings: {
-        shiprocketEmail: getField('shiprocketEmail').value.trim(),
-        shiprocketPassword: getField('shiprocketPassword').value.trim(),
-        storefrontAccessToken: getField('storefrontAccessToken').value.trim(),
         geminiApiKey: getField('geminiApiKey').value.trim(),
-        storeName: getField('storeName').value.trim(),
-        supportEmail: getField('supportEmail').value.trim(),
-        supportPhone: getField('supportPhone').value.trim(),
-        supportWhatsapp: getField('supportWhatsapp').value.trim(),
-        supportHours: getField('supportHours').value.trim(),
-        shippingPolicy: getField('shippingPolicy').value.trim(),
-        returnPolicy: getField('returnPolicy').value.trim(),
-        codPolicy: getField('codPolicy').value.trim(),
-        cancellationPolicy: getField('cancellationPolicy').value.trim(),
-        orderProcessingTime: getField('orderProcessingTime').value.trim(),
-        contactUrl: getField('contactUrl').value.trim(),
-        aboutText: getField('aboutText').value.trim(),
       },
     };
 

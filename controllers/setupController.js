@@ -137,9 +137,9 @@ function buildSetupStatus(req) {
     },
     notes: {
       merchant_settings:
-        'Open this app from Shopify admin to save per-store Shiprocket, storefront, and Gemini settings.',
+        'Open this app from Shopify admin to save the per-store Gemini API key.',
       shiprocket_credentials:
-        'Shiprocket API user credentials can now be saved per store from this app page. Fallback environment variables still work if per-store settings are empty.',
+        'Shiprocket and storefront values are currently expected from server-side environment configuration.',
     },
     env: {
       configured: envConfigured,
@@ -190,7 +190,7 @@ function serveShopifyAppHome(req, res, next) {
         <div>
           <span class="app-home-kicker">Shopify app settings</span>
           <h1>${escapeHtml(status.app.name)}</h1>
-          <p>Save Shiprocket, storefront, Gemini AI, and support settings here so the assistant works store-by-store after app install.</p>
+          <p>Save the Gemini API key here. Shiprocket, storefront, and other store values stay on the server configuration.</p>
         </div>
         <div class="app-home-hero-card">
           <strong>Detected shop</strong>
@@ -209,80 +209,16 @@ function serveShopifyAppHome(req, res, next) {
           ${
             status.current_shop.can_edit_settings
               ? `<form id="app-home-settings-form" class="app-home-form">
-            <div class="app-home-form-grid">
-              <label>
-                <span>Shop domain</span>
-                <input id="shopDomain" name="shopDomain" type="text" placeholder="your-store.myshopify.com" />
-              </label>
-              <label>
-                <span>Shiprocket email</span>
-                <input id="shiprocketEmail" name="shiprocketEmail" type="email" placeholder="api-user@example.com" />
-              </label>
-              <label>
-                <span>Shiprocket password</span>
-                <input id="shiprocketPassword" name="shiprocketPassword" type="password" placeholder="Leave blank to keep saved value" />
-                <small id="shiprocketPasswordHint"></small>
-              </label>
-              <label>
-                <span>Storefront access token</span>
-                <input id="storefrontAccessToken" name="storefrontAccessToken" type="password" placeholder="Leave blank to keep saved value" />
-                <small id="storefrontTokenHint"></small>
-              </label>
+            <input id="shopDomain" name="shopDomain" type="hidden" value="${escapeHtml(
+              status.current_shop.shop_domain || '',
+            )}" />
+            <div class="app-home-form-grid is-single">
               <label>
                 <span>Gemini API key</span>
-                <input id="geminiApiKey" name="geminiApiKey" type="password" placeholder="Leave blank to keep saved value" />
+                <input id="geminiApiKey" name="geminiApiKey" type="password" placeholder="Paste Gemini API key" />
                 <small id="geminiApiKeyHint"></small>
               </label>
-              <label>
-                <span>Store name</span>
-                <input id="storeName" name="storeName" type="text" />
-              </label>
-              <label>
-                <span>Support email</span>
-                <input id="supportEmail" name="supportEmail" type="email" />
-              </label>
-              <label>
-                <span>Support phone</span>
-                <input id="supportPhone" name="supportPhone" type="text" />
-              </label>
-              <label>
-                <span>Support WhatsApp</span>
-                <input id="supportWhatsapp" name="supportWhatsapp" type="text" />
-              </label>
-              <label>
-                <span>Support hours</span>
-                <input id="supportHours" name="supportHours" type="text" />
-              </label>
-              <label>
-                <span>Contact page URL</span>
-                <input id="contactUrl" name="contactUrl" type="url" />
-              </label>
             </div>
-
-            <label>
-              <span>Shipping policy</span>
-              <textarea id="shippingPolicy" name="shippingPolicy" rows="3"></textarea>
-            </label>
-            <label>
-              <span>Return policy</span>
-              <textarea id="returnPolicy" name="returnPolicy" rows="3"></textarea>
-            </label>
-            <label>
-              <span>COD / payment policy</span>
-              <textarea id="codPolicy" name="codPolicy" rows="3"></textarea>
-            </label>
-            <label>
-              <span>Cancellation / order changes</span>
-              <textarea id="cancellationPolicy" name="cancellationPolicy" rows="3"></textarea>
-            </label>
-            <label>
-              <span>Order processing time</span>
-              <textarea id="orderProcessingTime" name="orderProcessingTime" rows="2"></textarea>
-            </label>
-            <label>
-              <span>About store</span>
-              <textarea id="aboutText" name="aboutText" rows="3"></textarea>
-            </label>
 
             <div class="app-home-actions">
               <button id="app-home-save-button" type="submit">Save settings</button>
