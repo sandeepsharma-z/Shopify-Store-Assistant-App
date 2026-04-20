@@ -96,7 +96,6 @@ SHOPIFY_STOREFRONT_ACCESS_TOKEN=your-storefront-access-token
 SHOPIFY_STOREFRONT_API_VERSION=2025-07
 SHOPIFY_STOREFRONT_TIMEOUT_MS=15000
 SHOPIFY_CATALOG_CACHE_TTL_MS=300000
-GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-2.5-flash
 GEMINI_TIMEOUT_MS=12000
 STORE_SCRAPE_TIMEOUT_MS=4000
@@ -119,7 +118,7 @@ STORE_ABOUT_TEXT=We offer curated products with fast shipping and support.
 `STORE_SETTINGS_FILE` is where the app stores per-store merchant settings. In production, point it to a persistent disk path.
 `SETTINGS_ENCRYPTION_KEY` is strongly recommended in production so saved Shiprocket passwords and Storefront tokens are encrypted with your own key.
 `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_STOREFRONT_ACCESS_TOKEN`, `SHIPROCKET_EMAIL`, and `SHIPROCKET_PASSWORD` act as fallback values if per-store settings have not been saved from the Shopify app page yet.
-`GEMINI_API_KEY` is optional. If set, the chatbot uses Gemini to answer product, collection, policy, and store questions in a more natural way while staying grounded in Shopify catalog data, saved store settings, and lightweight page scraping.
+Gemini integration is configured from the Shopify admin app settings page, not from the public storefront. The chatbot uses the saved per-store Gemini API key to answer product, collection, policy, and store questions in a more natural way while staying grounded in Shopify catalog data, saved store settings, and lightweight page scraping.
 The `STORE_*` variables are optional, but they make the chatbot much better at answering shipping, return, payment, cancellation, contact, and brand questions without an AI model.
 
 ## How To Run Locally
@@ -421,7 +420,6 @@ Use `reply` as the message text inside your chatbot flow. The same endpoint also
    - `SHOPIFY_API_SECRET`
    - `SHOPIFY_STORE_DOMAIN`
    - `SHOPIFY_STOREFRONT_ACCESS_TOKEN`
-   - `GEMINI_API_KEY`
    - `SHOPIFY_STOREFRONT_API_VERSION=2025-07`
    - optional `STORE_*` variables for shipping, return, payment, cancellation, contact, and brand replies
    - `ALLOW_ORIGIN`

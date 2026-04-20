@@ -290,7 +290,7 @@ function buildRuntimeSettings(shopDomain) {
     shiprocketPassword: settings.shiprocketPassword || firstText(process.env.SHIPROCKET_PASSWORD),
     storefrontAccessToken:
       settings.storefrontAccessToken || firstText(process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN),
-    geminiApiKey: settings.geminiApiKey || firstText(process.env.GEMINI_API_KEY),
+    geminiApiKey: settings.geminiApiKey || null,
     storeName:
       settings.storeName ||
       firstText(process.env.STORE_NAME) ||

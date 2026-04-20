@@ -141,6 +141,23 @@ body {
   gap: 14px;
 }
 
+.app-home-readonly {
+  padding: 18px;
+  border-radius: 16px;
+  background: #fff8f2;
+  border: 1px solid rgba(236, 132, 90, 0.14);
+  color: #475360;
+  line-height: 1.7;
+}
+
+.app-home-readonly p {
+  margin: 0 0 10px;
+}
+
+.app-home-readonly p:last-child {
+  margin-bottom: 0;
+}
+
 .app-home-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

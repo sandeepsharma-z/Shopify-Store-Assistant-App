@@ -64,7 +64,6 @@ function buildSetupStatus(req) {
     fallback_storefront_access_token: Boolean(
       (process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || '').trim(),
     ),
-    fallback_gemini_api_key: Boolean((process.env.GEMINI_API_KEY || '').trim()),
   };
   const optionalSupportEnv = {
     store_name: Boolean((process.env.STORE_NAME || '').trim()),
@@ -131,7 +130,7 @@ function buildSetupStatus(req) {
     },
     notes: {
       merchant_settings:
-        'Open this app from Shopify admin to save per-store Shiprocket and storefront settings.',
+        'Open this app from Shopify admin to save per-store Shiprocket, storefront, and Gemini settings.',
       shiprocket_credentials:
         'Shiprocket API user credentials can now be saved per store from this app page. Fallback environment variables still work if per-store settings are empty.',
     },
@@ -196,10 +195,12 @@ function serveShopifyAppHome(req, res, next) {
         <section class="app-home-panel">
           <div class="app-home-panel-head">
             <h2>Merchant Settings</h2>
-            <p>Per-store values override fallback environment variables.</p>
+            <p>These settings are editable only from inside Shopify admin.</p>
           </div>
           <div id="app-home-alert" class="app-home-alert" hidden></div>
-          <form id="app-home-settings-form" class="app-home-form">
+          ${
+            status.current_shop.can_edit_settings
+              ? `<form id="app-home-settings-form" class="app-home-form">
             <div class="app-home-form-grid">
               <label>
                 <span>Shop domain</span>
@@ -279,7 +280,12 @@ function serveShopifyAppHome(req, res, next) {
               <button id="app-home-save-button" type="submit">Save settings</button>
               <span id="app-home-meta" class="app-home-meta"></span>
             </div>
-          </form>
+          </form>`
+              : `<div class="app-home-readonly">
+            <p>Open this app from Shopify admin to edit store settings.</p>
+            <p>The Gemini API key is intentionally hidden on direct live links and can only be saved from the embedded admin app.</p>
+          </div>`
+          }
         </section>
 
         <section class="app-home-stack">

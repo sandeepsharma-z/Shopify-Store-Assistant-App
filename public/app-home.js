@@ -6,6 +6,10 @@
   }
 
   const form = document.getElementById('app-home-settings-form');
+  if (!form) {
+    return;
+  }
+
   const alertNode = document.getElementById('app-home-alert');
   const metaNode = document.getElementById('app-home-meta');
   const saveButton = document.getElementById('app-home-save-button');
