@@ -129,9 +129,28 @@ const PRODUCT_HINTS = [
   'show',
   'find',
   'search',
+  't-shirt',
+  'tshirt',
+  't shirt',
+  'tee',
+  'shirt',
+  'hoodie',
+  'cap',
+  'sunglasses',
+  'ashtray',
+  'paper',
+  'papers',
+  'filter',
+  'filters',
+  'cone',
+  'cones',
+  'tray',
+  'frames',
+  'frame',
 ];
 
 const COLLECTION_HINTS = ['collection', 'collections', 'category', 'categories', 'range', 'ranges'];
+
 const OVERVIEW_HINTS = [
   'what do you sell',
   'what do you have',
@@ -143,6 +162,7 @@ const OVERVIEW_HINTS = [
   'all collections',
   'store overview',
 ];
+
 const RECOMMENDATION_HINTS = [
   'recommend',
   'suggest',
@@ -158,6 +178,34 @@ const RECOMMENDATION_HINTS = [
 ];
 
 const GENERIC_DISCOVERY_HINTS = ['show', 'find', 'browse', 'search', 'latest', 'new arrivals'];
+
+const COLOR_HINTS = [
+  'black',
+  'white',
+  'blue',
+  'red',
+  'green',
+  'pink',
+  'yellow',
+  'grey',
+  'gray',
+  'brown',
+  'purple',
+  'beige',
+  'cream',
+  'orange',
+];
+
+const MATERIAL_HINTS = [
+  'cotton',
+  'french terry',
+  'terry',
+  'fabric',
+  'material',
+  'gsm',
+  'premium',
+  'oversized',
+];
 
 const FILLER_PATTERNS = [
   /\bgive me\b/gi,
@@ -310,6 +358,14 @@ function stripHtml(value) {
   return firstText(String(value || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
 }
 
+function normalizeComparableText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s/-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function formatMoney(price) {
   if (!price || !price.currencyCode) {
     return null;
@@ -455,6 +511,10 @@ function extractPriceFilters(message) {
   };
 }
 
+function extractMatchedTerms(text, terms) {
+  return terms.filter((term) => text.includes(term));
+}
+
 function cleanCatalogTerm(message) {
   let cleaned = String(message || '');
 
@@ -485,6 +545,7 @@ function cleanCatalogTerm(message) {
 function analyzeCatalogMessage(message) {
   const normalized = String(message || '').trim();
   const lowered = normalized.toLowerCase();
+
   const wantsCollections = includesAny(lowered, COLLECTION_HINTS);
   const wantsRecommendations = includesAny(lowered, RECOMMENDATION_HINTS);
   const wantsStoreOverview =
@@ -513,6 +574,9 @@ function analyzeCatalogMessage(message) {
   const wantsOverview = wantsStoreOverview || normalized.length <= 16;
   const searchTerm = cleanCatalogTerm(normalized);
   const priceFilters = extractPriceFilters(normalized);
+  const matchedColors = extractMatchedTerms(lowered, COLOR_HINTS);
+  const matchedMaterials = extractMatchedTerms(lowered, MATERIAL_HINTS);
+  const matchedProductHints = extractMatchedTerms(lowered, PRODUCT_HINTS);
 
   return {
     rawMessage: normalized,
@@ -526,6 +590,9 @@ function analyzeCatalogMessage(message) {
     prefersCollections,
     wantsDetails,
     searchTerm,
+    matchedColors,
+    matchedMaterials,
+    matchedProductHints,
     ...priceFilters,
   };
 }
@@ -678,11 +745,99 @@ function scoreTextMatch(text, tokens) {
   }, 0);
 }
 
+function getProductComparableText(product) {
+  return normalizeComparableText(
+    [
+      product.title,
+      product.handle,
+      product.description,
+      product.vendor,
+      product.productType,
+      Array.isArray(product.collections) ? product.collections.join(' ') : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
+  );
+}
+
+function getColorBoost(product, request) {
+  if (!Array.isArray(request.matchedColors) || !request.matchedColors.length) {
+    return 0;
+  }
+
+  const text = getProductComparableText(product);
+
+  return request.matchedColors.reduce((score, color) => {
+    if (text.includes(color)) {
+      return score + 18;
+    }
+
+    return score - 6;
+  }, 0);
+}
+
+function getMaterialBoost(product, request) {
+  if (!Array.isArray(request.matchedMaterials) || !request.matchedMaterials.length) {
+    return 0;
+  }
+
+  const text = getProductComparableText(product);
+
+  return request.matchedMaterials.reduce((score, material) => {
+    if (text.includes(material)) {
+      return score + 10;
+    }
+
+    return score;
+  }, 0);
+}
+
+function getProductHintBoost(product, request) {
+  if (!Array.isArray(request.matchedProductHints) || !request.matchedProductHints.length) {
+    return 0;
+  }
+
+  const text = getProductComparableText(product);
+
+  return request.matchedProductHints.reduce((score, hint) => {
+    if (text.includes(hint)) {
+      return score + 12;
+    }
+
+    return score;
+  }, 0);
+}
+
+function getQualityBoost(product) {
+  const text = getProductComparableText(product);
+  let score = 0;
+
+  if (text.includes('premium')) score += 5;
+  if (text.includes('240 gsm')) score += 8;
+  if (text.includes('220 gsm')) score += 6;
+  if (text.includes('100% cotton')) score += 8;
+  if (text.includes('french terry')) score += 8;
+  if (text.includes('oversized')) score += 4;
+  if (text.includes('best seller') || text.includes('bestseller')) score += 10;
+  if (text.includes('popular')) score += 4;
+  if (text.includes('trending')) score += 4;
+  if (text.includes('featured')) score += 4;
+  if (text.includes('new arrival')) score += 3;
+
+  return score;
+}
+
 function rankProducts(products, request) {
   const tokens = buildSearchTokens(request);
 
   if (!tokens.length) {
-    return products;
+    return [...products].sort((left, right) => {
+      if (right.available !== left.available) {
+        return right.available ? 1 : -1;
+      }
+
+      return 0;
+    });
   }
 
   return [...products].sort((left, right) => {
@@ -692,24 +847,39 @@ function rankProducts(products, request) {
       scoreTextMatch(left.description, tokens) * 2 +
       scoreTextMatch(left.vendor, tokens) +
       scoreTextMatch(left.productType, tokens) +
-      countWholeWordMatches(left.title, tokens) * 6 +
-      countWholeWordMatches(left.description, tokens) * 4 +
-      countCoverage(left.collections.join(' '), tokens) * 2;
+      countWholeWordMatches(left.title, tokens) * 7 +
+      countWholeWordMatches(left.description, tokens) * 5 +
+      countCoverage((left.collections || []).join(' '), tokens) * 2 +
+      getColorBoost(left, request) +
+      getMaterialBoost(left, request) +
+      getProductHintBoost(left, request) +
+      getQualityBoost(left) +
+      (left.available ? 10 : -12);
+
     const rightScore =
       scoreTextMatch(right.title, tokens) * 3 +
       scoreTextMatch(right.handle, tokens) * 2 +
       scoreTextMatch(right.description, tokens) * 2 +
       scoreTextMatch(right.vendor, tokens) +
       scoreTextMatch(right.productType, tokens) +
-      countWholeWordMatches(right.title, tokens) * 6 +
-      countWholeWordMatches(right.description, tokens) * 4 +
-      countCoverage(right.collections.join(' '), tokens) * 2;
+      countWholeWordMatches(right.title, tokens) * 7 +
+      countWholeWordMatches(right.description, tokens) * 5 +
+      countCoverage((right.collections || []).join(' '), tokens) * 2 +
+      getColorBoost(right, request) +
+      getMaterialBoost(right, request) +
+      getProductHintBoost(right, request) +
+      getQualityBoost(right) +
+      (right.available ? 10 : -12);
 
     if (rightScore !== leftScore) {
       return rightScore - leftScore;
     }
 
-    return (right.available === left.available) ? 0 : right.available ? 1 : -1;
+    if (right.available !== left.available) {
+      return right.available ? 1 : -1;
+    }
+
+    return 0;
   });
 }
 
@@ -824,6 +994,40 @@ function buildOverviewReply(shop, products, collections, request) {
   };
 }
 
+function buildBestMatchReason(product, request, primaryHighlights) {
+  const reasons = [];
+  const text = getProductComparableText(product);
+
+  if (Array.isArray(request.matchedColors) && request.matchedColors.length) {
+    const matchingColors = request.matchedColors.filter((color) => text.includes(color));
+    if (matchingColors.length) {
+      reasons.push(`${matchingColors.join(', ')} match`);
+    }
+  }
+
+  if (Array.isArray(request.matchedProductHints) && request.matchedProductHints.length) {
+    const typeReason = request.matchedProductHints.find((hint) => text.includes(hint));
+    if (typeReason) {
+      reasons.push(`${typeReason} relevance`);
+    }
+  }
+
+  if (product.available) {
+    reasons.push('currently in stock');
+  }
+
+  if (text.includes('240 gsm')) reasons.push('240 GSM fabric');
+  if (text.includes('100% cotton')) reasons.push('100% cotton');
+  if (text.includes('french terry')) reasons.push('French terry fabric');
+  if (text.includes('premium')) reasons.push('premium material');
+
+  if (!reasons.length && primaryHighlights.length) {
+    reasons.push(primaryHighlights[0]);
+  }
+
+  return reasons.slice(0, 3);
+}
+
 function buildProductReply(products, request, shop) {
   if (!products.length) {
     return null;
@@ -831,20 +1035,29 @@ function buildProductReply(products, request, shop) {
 
   const primaryProduct = products[0];
   const primaryHighlights = buildDescriptionHighlights(primaryProduct, request);
+  const searchTokens = buildSearchTokens(request);
   const shouldUseDetailAnswer =
     request.wantsDetails ||
+    request.wantsRecommendations ||
     (request.searchTerm &&
       products.length &&
-      buildSearchTokens(request).length > 1 &&
-      countWholeWordMatches(primaryProduct.title, buildSearchTokens(request)) +
-        countWholeWordMatches(primaryProduct.description, buildSearchTokens(request)) >= 2);
+      searchTokens.length > 1 &&
+      countWholeWordMatches(primaryProduct.title, searchTokens) +
+        countWholeWordMatches(primaryProduct.description, searchTokens) >= 2);
 
   if (products.length === 1 || shouldUseDetailAnswer) {
     const product = primaryProduct;
     const details = [];
     const multiProductCardItems =
-      products.length > 1 && buildSearchTokens(request).length <= 2 ? products.slice(0, 4) : [product];
-    const matchReasonParts = [];
+      products.length > 1 && searchTokens.length <= 2 ? products.slice(0, 4) : [product];
+    const alternativeMatches =
+      products.length > 1
+        ? products
+            .slice(1, 4)
+            .map((item) => item.title)
+            .filter(Boolean)
+        : [];
+    const reasons = buildBestMatchReason(product, request, primaryHighlights);
 
     if (product.price) {
       details.push(`Price: ${product.price}`);
@@ -870,35 +1083,32 @@ function buildProductReply(products, request, shop) {
 
     if (primaryHighlights.length) {
       details.push(`About: ${primaryHighlights.join(' ')}`);
-      matchReasonParts.push(primaryHighlights[0]);
     }
-
-    const alternativeMatches =
-      products.length > 1
-        ? products
-            .slice(1, 4)
-            .map((item) => item.title)
-            .filter(Boolean)
-        : [];
 
     if (alternativeMatches.length) {
       details.push(`Other close matches: ${alternativeMatches.join(', ')}`);
     }
 
-    if (product.productType) {
-      matchReasonParts.push(`This is listed under ${product.productType}.`);
-    }
+    const intro = request.wantsRecommendations
+      ? `The best match right now is ${product.title}.`
+      : `The best match is ${product.title}.`;
+
+    const reasonLine = reasons.length ? `Why it matches: ${reasons.join(', ')}.` : null;
 
     const replyParts = [
-      `The best match is ${product.title}.`,
-      matchReasonParts.length ? matchReasonParts.slice(0, 2).join(' ') : null,
+      intro,
+      reasonLine,
       details.length ? details.join('. ') + '.' : null,
     ].filter(Boolean);
 
     return {
       success: true,
       source: 'catalog',
-      intent: shouldUseDetailAnswer ? 'product_details' : 'product_lookup',
+      intent: request.wantsRecommendations
+        ? 'product_recommendations'
+        : shouldUseDetailAnswer
+          ? 'product_details'
+          : 'product_lookup',
       reply: replyParts.join(' '),
       suggestions: DEFAULT_CATALOG_SUGGESTIONS,
       catalog: buildCatalogEnvelope('products', request, shop, multiProductCardItems),
@@ -1037,24 +1247,35 @@ async function createCatalogReply({ message, shopDomain }) {
   }
 
   const request = analyzeCatalogMessage(message);
+
   const payload = await storefrontQuery(config, {
     productFirst: 8,
     collectionFirst: 6,
     productQuery: request.searchTerm,
     collectionQuery: request.searchTerm,
   });
+
   const shop = normalizeShop(payload.shop);
-  const products = rankProducts(filterProducts(
-    (payload.products?.edges || [])
-      .map((edge) => normalizeProduct(edge?.node, config.shopDomain))
-      .filter(Boolean),
+
+  const products = rankProducts(
+    filterProducts(
+      (payload.products?.edges || [])
+        .map((edge) => normalizeProduct(edge?.node, config.shopDomain))
+        .filter(Boolean),
+      request,
+    ),
     request,
-  ), request);
-  const collections = rankCollections(filterCollections(
-    (payload.collections?.edges || [])
-      .map((edge) => normalizeCollection(edge?.node, config.shopDomain))
-      .filter(Boolean),
-  ), request);
+  );
+
+  const collections = rankCollections(
+    filterCollections(
+      (payload.collections?.edges || [])
+        .map((edge) => normalizeCollection(edge?.node, config.shopDomain))
+        .filter(Boolean),
+    ),
+    request,
+  );
+
   const shouldRetryWithRelaxedQuery =
     request.searchTerm &&
     !products.length &&
@@ -1072,17 +1293,24 @@ async function createCatalogReply({ message, shopDomain }) {
         collectionQuery: relaxedTerm,
       });
 
-      const relaxedProducts = rankProducts(filterProducts(
-        (relaxedPayload.products?.edges || [])
-          .map((edge) => normalizeProduct(edge?.node, config.shopDomain))
-          .filter(Boolean),
+      const relaxedProducts = rankProducts(
+        filterProducts(
+          (relaxedPayload.products?.edges || [])
+            .map((edge) => normalizeProduct(edge?.node, config.shopDomain))
+            .filter(Boolean),
+          request,
+        ),
         request,
-      ), request);
-      const relaxedCollections = rankCollections(filterCollections(
-        (relaxedPayload.collections?.edges || [])
-          .map((edge) => normalizeCollection(edge?.node, config.shopDomain))
-          .filter(Boolean),
-      ), request);
+      );
+
+      const relaxedCollections = rankCollections(
+        filterCollections(
+          (relaxedPayload.collections?.edges || [])
+            .map((edge) => normalizeCollection(edge?.node, config.shopDomain))
+            .filter(Boolean),
+        ),
+        request,
+      );
 
       if (relaxedProducts.length || relaxedCollections.length) {
         return (
