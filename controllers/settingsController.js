@@ -24,6 +24,7 @@ function validateSettingsPayload(payload = {}) {
     shiprocketEmail: 320,
     shiprocketPassword: 200,
     storefrontAccessToken: 400,
+    geminiApiKey: 400,
     storeName: 120,
     supportEmail: 320,
     supportPhone: 40,

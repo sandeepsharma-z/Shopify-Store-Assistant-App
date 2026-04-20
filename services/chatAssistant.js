@@ -1,4 +1,5 @@
 const { fetchTracking } = require('./shiprocket');
+const { createGeminiReply } = require('./geminiAssistant');
 const {
   DEFAULT_CATALOG_SUGGESTIONS,
   analyzeCatalogMessage,
@@ -390,6 +391,16 @@ async function createChatReply({ message, shopDomain }) {
       reply:
         'Happy to help. Send another AWB number, order ID, product keyword, collection name, or support question whenever you need.',
     });
+  }
+
+  const geminiReply = await createGeminiReply({
+    message,
+    shopDomain,
+    primaryIntent,
+  });
+
+  if (geminiReply) {
+    return buildResponse(geminiReply);
   }
 
   const supportReply =

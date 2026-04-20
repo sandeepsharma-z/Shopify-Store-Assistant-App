@@ -10,6 +10,7 @@ const SETTINGS_FIELDS = [
   'shiprocketEmail',
   'shiprocketPassword',
   'storefrontAccessToken',
+  'geminiApiKey',
   'storeName',
   'supportEmail',
   'supportPhone',
@@ -24,7 +25,7 @@ const SETTINGS_FIELDS = [
   'aboutText',
 ];
 
-const SENSITIVE_FIELDS = new Set(['shiprocketPassword', 'storefrontAccessToken']);
+const SENSITIVE_FIELDS = new Set(['shiprocketPassword', 'storefrontAccessToken', 'geminiApiKey']);
 
 function firstText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -289,6 +290,7 @@ function buildRuntimeSettings(shopDomain) {
     shiprocketPassword: settings.shiprocketPassword || firstText(process.env.SHIPROCKET_PASSWORD),
     storefrontAccessToken:
       settings.storefrontAccessToken || firstText(process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN),
+    geminiApiKey: settings.geminiApiKey || firstText(process.env.GEMINI_API_KEY),
     storeName:
       settings.storeName ||
       firstText(process.env.STORE_NAME) ||
@@ -321,6 +323,7 @@ function getAdminSettingsView(shopDomain) {
       shiprocketEmail: saved?.settings?.shiprocketEmail || '',
       hasShiprocketPassword: Boolean(saved?.settings?.shiprocketPassword),
       hasStorefrontAccessToken: Boolean(saved?.settings?.storefrontAccessToken),
+      hasGeminiApiKey: Boolean(saved?.settings?.geminiApiKey),
       storeName: saved?.settings?.storeName || '',
       supportEmail: saved?.settings?.supportEmail || '',
       supportPhone: saved?.settings?.supportPhone || '',

@@ -11,6 +11,7 @@
   const saveButton = document.getElementById('app-home-save-button');
   const passwordHint = document.getElementById('shiprocketPasswordHint');
   const storefrontHint = document.getElementById('storefrontTokenHint');
+  const geminiHint = document.getElementById('geminiApiKeyHint');
 
   function getField(id) {
     return document.getElementById(id);
@@ -54,6 +55,7 @@
     getField('aboutText').value = settings.aboutText || '';
     getField('shiprocketPassword').value = '';
     getField('storefrontAccessToken').value = '';
+    getField('geminiApiKey').value = '';
 
     passwordHint.textContent = settings.hasShiprocketPassword
       ? 'A password is already saved. Leave blank to keep it.'
@@ -61,6 +63,9 @@
     storefrontHint.textContent = settings.hasStorefrontAccessToken
       ? 'A storefront token is already saved. Leave blank to keep it.'
       : 'No storefront token saved yet.';
+    geminiHint.textContent = settings.hasGeminiApiKey
+      ? 'A Gemini API key is already saved. Leave blank to keep it.'
+      : 'No Gemini API key saved yet.';
 
     metaNode.textContent = payload && payload.updatedAt ? 'Last updated: ' + payload.updatedAt : '';
   }
@@ -130,6 +135,7 @@
         shiprocketEmail: getField('shiprocketEmail').value.trim(),
         shiprocketPassword: getField('shiprocketPassword').value.trim(),
         storefrontAccessToken: getField('storefrontAccessToken').value.trim(),
+        geminiApiKey: getField('geminiApiKey').value.trim(),
         storeName: getField('storeName').value.trim(),
         supportEmail: getField('supportEmail').value.trim(),
         supportPhone: getField('supportPhone').value.trim(),

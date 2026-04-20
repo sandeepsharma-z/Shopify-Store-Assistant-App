@@ -64,6 +64,7 @@ function buildSetupStatus(req) {
     fallback_storefront_access_token: Boolean(
       (process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || '').trim(),
     ),
+    fallback_gemini_api_key: Boolean((process.env.GEMINI_API_KEY || '').trim()),
   };
   const optionalSupportEnv = {
     store_name: Boolean((process.env.STORE_NAME || '').trim()),
@@ -182,7 +183,7 @@ function serveShopifyAppHome(req, res, next) {
         <div>
           <span class="app-home-kicker">Shopify app settings</span>
           <h1>${escapeHtml(status.app.name)}</h1>
-          <p>Save Shiprocket, storefront, and support settings here so the assistant works store-by-store after app install.</p>
+          <p>Save Shiprocket, storefront, Gemini AI, and support settings here so the assistant works store-by-store after app install.</p>
         </div>
         <div class="app-home-hero-card">
           <strong>Detected shop</strong>
@@ -217,6 +218,11 @@ function serveShopifyAppHome(req, res, next) {
                 <span>Storefront access token</span>
                 <input id="storefrontAccessToken" name="storefrontAccessToken" type="password" placeholder="Leave blank to keep saved value" />
                 <small id="storefrontTokenHint"></small>
+              </label>
+              <label>
+                <span>Gemini API key</span>
+                <input id="geminiApiKey" name="geminiApiKey" type="password" placeholder="Leave blank to keep saved value" />
+                <small id="geminiApiKeyHint"></small>
               </label>
               <label>
                 <span>Store name</span>
