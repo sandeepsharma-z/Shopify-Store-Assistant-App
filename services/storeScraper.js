@@ -142,7 +142,14 @@ async function getStoreKnowledge(shopDomain) {
     { name: 'Refund Policy', url: `${baseUrl}/policies/refund-policy` },
     { name: 'Privacy Policy', url: `${baseUrl}/policies/privacy-policy` },
     { name: 'Terms of Service', url: `${baseUrl}/policies/terms-of-service` },
+    { name: 'Track Your Order', url: `${baseUrl}/pages/track-your-order` },
+    { name: 'Returns & Exchange', url: `${baseUrl}/pages/returns-exchange` },
+    { name: 'Returns and Exchange', url: `${baseUrl}/pages/returns-and-exchange` },
+    { name: 'Refund Policy Page', url: `${baseUrl}/pages/refund-policy` },
+    { name: 'Privacy Policy Page', url: `${baseUrl}/pages/privacy-policy` },
+    { name: 'Terms Page', url: `${baseUrl}/pages/terms-of-service` },
     { name: 'Contact', url: `${baseUrl}/pages/contact` },
+    { name: 'About', url: `${baseUrl}/pages/about` },
   ];
 
   const results = await Promise.all(pageTargets.map((page) => fetchPage(page.url)));

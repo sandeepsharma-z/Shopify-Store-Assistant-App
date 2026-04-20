@@ -1,7 +1,11 @@
 const axios = require('axios');
 
 const logger = require('../utils/logger');
-const { DEFAULT_CATALOG_SUGGESTIONS, createCatalogReply } = require('./shopifyCatalog');
+const {
+  DEFAULT_CATALOG_SUGGESTIONS,
+  analyzeCatalogMessage,
+  createCatalogReply,
+} = require('./shopifyCatalog');
 const { getStoreKnowledge } = require('./storeScraper');
 const { buildRuntimeSettings } = require('./storeSettings');
 const { createSupportReply, getSupportConfig } = require('./storeSupport');
@@ -30,6 +34,27 @@ function truncate(text, maxLength = 1600) {
   return `${normalized.slice(0, maxLength - 3).trim()}...`;
 }
 
+function normalizeWhitespace(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractDescriptionHighlights(text, maxItems = 3) {
+  const normalized = normalizeWhitespace(text);
+
+  if (!normalized) {
+    return [];
+  }
+
+  return normalized
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+    .slice(0, maxItems)
+    .map((sentence) => truncate(sentence, 220));
+}
+
 function getGeminiConfig(shopDomain) {
   const runtime = buildRuntimeSettings(shopDomain);
   const apiKey = firstText(runtime.geminiApiKey || process.env.GEMINI_API_KEY);
@@ -55,6 +80,7 @@ function formatCatalogItems(catalog) {
   return items
     .slice(0, 6)
     .map((item, index) => {
+      const descriptionHighlights = extractDescriptionHighlights(item.description, 2);
       const parts = [
         `${index + 1}. ${item.title || 'Untitled item'}`,
         item.price ? `Price: ${item.price}` : null,
@@ -64,7 +90,9 @@ function formatCatalogItems(catalog) {
         Array.isArray(item.collections) && item.collections.length
           ? `Collections: ${item.collections.slice(0, 3).join(', ')}`
           : null,
-        item.description ? `Description: ${truncate(item.description, 280)}` : null,
+        descriptionHighlights.length
+          ? `Description highlights: ${descriptionHighlights.join(' | ')}`
+          : null,
         item.url ? `URL: ${item.url}` : null,
       ].filter(Boolean);
 
@@ -81,13 +109,29 @@ function formatOverviewCatalog(catalog) {
     products.length
       ? `Featured products:\n${products
           .slice(0, 4)
-          .map((item, index) => `${index + 1}. ${item.title}${item.price ? ` | ${item.price}` : ''}`)
+          .map((item, index) => {
+            const highlights = extractDescriptionHighlights(item.description, 1);
+            return [
+              `${index + 1}. ${item.title}${item.price ? ` | ${item.price}` : ''}`,
+              highlights.length ? `Description: ${highlights.join(' ')}` : null,
+            ]
+              .filter(Boolean)
+              .join(' | ');
+          })
           .join('\n')}`
       : null,
     collections.length
       ? `Collections:\n${collections
           .slice(0, 4)
-          .map((item, index) => `${index + 1}. ${item.title}${item.url ? ` | ${item.url}` : ''}`)
+          .map((item, index) => {
+            const highlights = extractDescriptionHighlights(item.description, 1);
+            return [
+              `${index + 1}. ${item.title}${item.url ? ` | ${item.url}` : ''}`,
+              highlights.length ? `Description: ${highlights.join(' ')}` : null,
+            ]
+              .filter(Boolean)
+              .join(' | ');
+          })
           .join('\n')}`
       : null,
   ]
@@ -95,9 +139,41 @@ function formatOverviewCatalog(catalog) {
     .join('\n\n');
 }
 
+function formatCatalogCardContext(catalog) {
+  if (!catalog || typeof catalog !== 'object') {
+    return 'No catalog card should be attached unless the answer is directly about products or collections.';
+  }
+
+  if (catalog.type === 'overview') {
+    return 'Attach the overview catalog card because the user asked about the store catalog broadly.';
+  }
+
+  if (Array.isArray(catalog.items) && catalog.items.length) {
+    return `Attach the ${catalog.type} catalog card with the matched items already provided by backend.`;
+  }
+
+  return 'Do not imply catalog matches that are not present in the supplied context.';
+}
+
+function formatRequestIntentSummary(message) {
+  const request = analyzeCatalogMessage(message);
+  const parts = [
+    request.searchTerm ? `Search term: ${request.searchTerm}` : null,
+    request.wantsRecommendations ? 'User wants recommendations.' : null,
+    request.wantsDetails ? 'User wants descriptive details.' : null,
+    request.wantsPrice ? 'User cares about price.' : null,
+    request.wantsAvailability ? 'User cares about availability.' : null,
+    request.wantsCollections ? 'Collections may be relevant.' : null,
+    request.prefersCollections ? 'Prefer collection-first answer if matches are strong.' : null,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(' ') : 'No additional parsed catalog intent.';
+}
+
 function buildPrompt({
   message,
   shopDomain,
+  primaryIntent,
   supportReply,
   supportConfig,
   catalogReply,
@@ -126,7 +202,7 @@ function buildPrompt({
         .slice(0, 5)
         .map(
           (page, index) =>
-            `${index + 1}. ${page.name}${page.url ? ` (${page.url})` : ''}\n${truncate(page.snippet, 500)}`,
+            `${index + 1}. ${page.name}${page.url ? ` (${page.url})` : ''}\nTitle: ${page.title || page.name}\nExcerpt: ${truncate(page.snippet, 560)}`,
         )
         .join('\n\n')
     : '';
@@ -141,16 +217,38 @@ function buildPrompt({
     .map((entry, index) => `${index + 1}. ${entry}`)
     .join('\n');
 
+  const strictIntentGuide = {
+    tracking:
+      'Tracking questions must stay strictly grounded in backend tracking data. If no tracking payload exists here, do not fabricate shipment status.',
+    catalog:
+      'Catalog questions should prioritize exact or close product and collection matches, especially title + description overlaps.',
+    support:
+      'Support and policy questions should answer from saved support config and scraped policy pages only.',
+    fallback:
+      'Fallback questions should use the closest grounded store information and keep the answer brief.',
+  };
+
   return `
-You are a store assistant for a Shopify storefront.
+You are a grounded Shopify storefront assistant.
 Answer in English only.
-Use only the provided store context. Do not invent facts, prices, stock, policies, product specs, or tracking information.
-If the exact answer is not available in context, say that clearly and suggest the closest useful next step.
-Keep the answer customer-friendly and concise, usually 2 to 5 sentences.
-If the question is about products, prefer matching by product descriptions and titles together.
-If multiple products match, mention the best few matches.
-If the question is about a policy, summarize the actual policy content from context.
-Never mention Gemini, prompts, internal context, scraping, or configuration details.
+Use only the supplied store context.
+Do not invent facts, prices, discounts, stock, policies, shipping promises, delivery dates, product specs, or tracking updates.
+If the exact answer is not present, say that clearly and give the closest grounded next step.
+Keep the answer concise and customer-friendly, usually 2 to 5 sentences.
+When the user asks about products, use product titles, product descriptions, product type, brand, and collection names together before deciding relevance.
+When several items match, mention the best few matches in a natural sentence.
+When the user asks about policies, summarize the actual policy wording from context instead of giving generic ecommerce advice.
+When the user asks about the store, brand, or support, use only the saved support details and page excerpts below.
+Never mention Gemini, prompts, internal context, scraping, backend logic, configuration, or hidden data structures.
+
+Primary intent:
+${primaryIntent || 'fallback'}
+
+Intent rule:
+${strictIntentGuide[primaryIntent] || strictIntentGuide.fallback}
+
+Parsed request notes:
+${formatRequestIntentSummary(message)}
 
 Customer question:
 ${message}
@@ -167,8 +265,29 @@ ${deterministicHints || 'No deterministic hint available.'}
 Catalog context:
 ${catalogSummary || 'No direct catalog matches were found.'}
 
+Catalog card guidance:
+${formatCatalogCardContext(catalogReply?.catalog)}
+
 Store page excerpts:
 ${pageSummary || 'No page excerpts were available.'}
+
+Answer requirements:
+- Prefer a direct answer first.
+- If a product is relevant, mention why it matches the user request.
+- If policy or support details are asked, summarize those details directly.
+- If nothing exact matches, say so and suggest a nearby product, collection, policy page, or tracking lookup.
+- Do not start with "Based on the provided context" or similar filler.
+- Sound like a polished store assistant, not like an AI tool.
+
+Good answer examples:
+1. Product attribute query:
+"The closest match is LIT ELITE PACK PINK because its description mentions premium cotton fabric and oversized streetwear styling. It is currently in stock at ₹320 - ₹599. If you want, I can also show the other closest Lite Elite variants."
+
+2. Policy query:
+"Refund Policy: Returns are accepted within 3 days, while jewellery, rugs, and frames are non-returnable unless they arrive damaged or incorrect. Sale items are final sale."
+
+3. No exact match query:
+"I could not find an exact product matching that material request, but the closest result is NO SELF CONTROL T-SHIRT. If you want, I can also show similar T-shirts from the same collection."
 `.trim();
 }
 
@@ -216,6 +335,7 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
   const prompt = buildPrompt({
     message,
     shopDomain,
+    primaryIntent,
     supportReply,
     supportConfig,
     catalogReply,
@@ -240,9 +360,9 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
           },
         ],
         generationConfig: {
-          temperature: 0.2,
+          temperature: 0.1,
           topP: 0.9,
-          maxOutputTokens: 280,
+          maxOutputTokens: 360,
         },
       },
       {

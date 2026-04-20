@@ -113,6 +113,32 @@ const CATALOG_KEYWORDS = [
   'filters',
   'paper',
   'papers',
+  'material',
+  'materials',
+  'contains',
+  'contain',
+  'made of',
+  'feature',
+  'features',
+  'benefit',
+  'benefits',
+  'compare',
+  'difference',
+  'size',
+  'sizes',
+  'colour',
+  'color',
+  'fabric',
+  'cotton',
+  'gsm',
+];
+
+const CATALOG_QUESTION_PATTERNS = [
+  /\b(give me|show me|find me|tell me about|details about|more about)\b/i,
+  /\b(contains|contain|made of|material|fabric|gsm|feature|features|benefit|benefits)\b/i,
+  /\b(compare|difference|best|popular|trending|latest)\b/i,
+  /\b(which|what|do you have|have you got)\b/i,
+  /\b(t-?shirt|shirt|tee|hoodie|cap|frame|frames|sunglasses|ashtray|tray|cone|cones|filter|filters|paper|papers)\b/i,
 ];
 
 function buildResponse({
@@ -191,6 +217,9 @@ function classifyMessage(message) {
   const supportScore = countKeywordHits(text, SUPPORT_KEYWORDS);
   const catalogScore = countKeywordHits(text, CATALOG_KEYWORDS);
   const catalogRequest = analyzeCatalogMessage(message);
+  const hasCatalogQuestionPattern = CATALOG_QUESTION_PATTERNS.some((pattern) =>
+    pattern.test(message),
+  );
   const hasReference =
     Boolean(extractExplicitOrderId(message)) ||
     Boolean(extractLabeledAwb(message)) ||
@@ -199,6 +228,21 @@ function classifyMessage(message) {
 
   if (hasReference || trackingScore > Math.max(supportScore, catalogScore)) {
     return 'tracking';
+  }
+
+  if (
+    (catalogRequest.searchTerm || catalogScore > 0) &&
+    (
+      catalogRequest.wantsStoreOverview ||
+      catalogRequest.wantsRecommendations ||
+      catalogRequest.wantsPrice ||
+      catalogRequest.wantsAvailability ||
+      catalogRequest.wantsDetails ||
+      catalogRequest.prefersCollections
+    ) &&
+    supportScore === 0
+  ) {
+    return 'catalog';
   }
 
   if (
@@ -216,6 +260,13 @@ function classifyMessage(message) {
     !/\b(store|brand|about us|who are you|contact|support|customer care|privacy|refund|return|exchange|shipping|delivery|terms|payment|cod|cancel|cancellation)\b/.test(
       text,
     )
+  ) {
+    return 'catalog';
+  }
+
+  if (
+    hasCatalogQuestionPattern &&
+    (catalogRequest.searchTerm || catalogScore > 0)
   ) {
     return 'catalog';
   }
@@ -393,6 +444,19 @@ async function createChatReply({ message, shopDomain }) {
     });
   }
 
+  let deterministicCatalogReply = null;
+
+  if (primaryIntent === 'catalog' || primaryIntent === 'fallback') {
+    try {
+      deterministicCatalogReply = await createCatalogReply({
+        message,
+        shopDomain,
+      });
+    } catch (error) {
+      deterministicCatalogReply = null;
+    }
+  }
+
   const geminiReply = await createGeminiReply({
     message,
     shopDomain,
@@ -415,22 +479,24 @@ async function createChatReply({ message, shopDomain }) {
     return buildResponse(supportReply);
   }
 
-  let catalogReply;
+  let catalogReply = deterministicCatalogReply;
 
-  try {
-    catalogReply = await createCatalogReply({
-      message,
-      shopDomain,
-    });
-  } catch (error) {
-    return buildResponse({
-      success: false,
-      source: 'catalog',
-      intent: 'catalog_lookup_failed',
-      reply:
-        'I could not load the store catalog right now. Please try again in a moment, or send an AWB number for live tracking.',
-      suggestions: ['Track Your Order', 'Refund Policy', 'Privacy Policy', 'Terms of Service'],
-    });
+  if (!catalogReply) {
+    try {
+      catalogReply = await createCatalogReply({
+        message,
+        shopDomain,
+      });
+    } catch (error) {
+      return buildResponse({
+        success: false,
+        source: 'catalog',
+        intent: 'catalog_lookup_failed',
+        reply:
+          'I could not load the store catalog right now. Please try again in a moment, or send an AWB number for live tracking.',
+        suggestions: ['Track Your Order', 'Refund Policy', 'Privacy Policy', 'Terms of Service'],
+      });
+    }
   }
 
   if (catalogReply.intent === 'catalog_not_configured') {
@@ -444,7 +510,18 @@ async function createChatReply({ message, shopDomain }) {
     });
   }
 
-  return buildResponse(catalogReply);
+  if (catalogReply) {
+    return buildResponse(catalogReply);
+  }
+
+  return buildResponse({
+    success: true,
+    source: 'faq',
+    intent: 'assistant_fallback',
+    reply:
+      'I can help with live tracking, store policies, products, and collections. Send an AWB number, order ID, product keyword, collection name, or your store question directly.',
+    suggestions: ['Track Your Order', 'Refund Policy', 'Privacy Policy', 'Terms of Service'],
+  });
 }
 
 module.exports = {

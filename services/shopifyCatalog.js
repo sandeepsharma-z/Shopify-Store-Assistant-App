@@ -844,6 +844,7 @@ function buildProductReply(products, request, shop) {
     const details = [];
     const multiProductCardItems =
       products.length > 1 && buildSearchTokens(request).length <= 2 ? products.slice(0, 4) : [product];
+    const matchReasonParts = [];
 
     if (product.price) {
       details.push(`Price: ${product.price}`);
@@ -869,6 +870,7 @@ function buildProductReply(products, request, shop) {
 
     if (primaryHighlights.length) {
       details.push(`About: ${primaryHighlights.join(' ')}`);
+      matchReasonParts.push(primaryHighlights[0]);
     }
 
     const alternativeMatches =
@@ -883,11 +885,21 @@ function buildProductReply(products, request, shop) {
       details.push(`Other close matches: ${alternativeMatches.join(', ')}`);
     }
 
+    if (product.productType) {
+      matchReasonParts.push(`This is listed under ${product.productType}.`);
+    }
+
+    const replyParts = [
+      `The best match is ${product.title}.`,
+      matchReasonParts.length ? matchReasonParts.slice(0, 2).join(' ') : null,
+      details.length ? details.join('. ') + '.' : null,
+    ].filter(Boolean);
+
     return {
       success: true,
       source: 'catalog',
       intent: shouldUseDetailAnswer ? 'product_details' : 'product_lookup',
-      reply: `I found ${product.title}. ${details.join('. ')}.`,
+      reply: replyParts.join(' '),
       suggestions: DEFAULT_CATALOG_SUGGESTIONS,
       catalog: buildCatalogEnvelope('products', request, shop, multiProductCardItems),
     };
@@ -903,8 +915,8 @@ function buildProductReply(products, request, shop) {
     .join('; ');
   const label = request.searchTerm ? ` for "${request.searchTerm}"` : '';
   const intro = request.wantsRecommendations
-    ? `I found ${products.length} recommended products${label}.`
-    : `I found ${products.length} products${label}.`;
+    ? `These are the strongest product matches${label}.`
+    : `I found these product matches${label}.`;
 
   return {
     success: true,
@@ -927,7 +939,7 @@ function buildCollectionReply(collections, request, shop) {
       .slice(0, 3)
       .map((product) => product.title)
       .filter(Boolean);
-    const parts = [`I found the ${collection.title} collection.`];
+    const parts = [`The closest collection match is ${collection.title}.`];
 
     if (collection.description) {
       parts.push(collection.description);
@@ -972,7 +984,7 @@ function buildCollectionReply(collections, request, shop) {
     success: true,
     source: 'catalog',
     intent: 'collection_lookup',
-    reply: `I found ${collections.length} collections${label}. ${summary}.`,
+    reply: `These collections match${label}: ${summary}.`,
     suggestions: DEFAULT_CATALOG_SUGGESTIONS,
     catalog: buildCatalogEnvelope('collections', request, shop, collections.slice(0, 4)),
   };
