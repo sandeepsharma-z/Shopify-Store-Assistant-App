@@ -29,11 +29,18 @@ function resolveShopContext(req) {
   const hasHmac = typeof req.query.hmac === 'string' && req.query.hmac.trim();
   const hmacValid = hasHmac && secret ? verifyShopifyQueryHmac(req.query, secret) : false;
   const localEditable = process.env.NODE_ENV !== 'production';
-  const canEdit = hasShop && (hmacValid || localEditable);
+  const embeddedAdminContext =
+    hasShop &&
+    typeof req.query.host === 'string' &&
+    req.query.host.trim() &&
+    (String(req.query.embedded || '') === '1' ||
+      String(req.get('referer') || '').includes('admin.shopify.com'));
+  const canEdit = hasShop && (hmacValid || embeddedAdminContext || localEditable);
 
   return {
     shopDomain: hasShop ? requestedShop : null,
     hmacValid,
+    embeddedAdminContext,
     canEdit,
     settingsToken: canEdit ? createSettingsAccessToken({ shopDomain: requestedShop }) : null,
   };
@@ -159,6 +166,7 @@ function serveShopifyAppHome(req, res, next) {
       shopDomain: shopContext.shopDomain,
       canEdit: shopContext.canEdit,
       hmacValid: shopContext.hmacValid,
+      embeddedAdminContext: shopContext.embeddedAdminContext,
       settingsToken: shopContext.settingsToken,
       endpoints: {
         settings: '/api/store-settings',
@@ -312,6 +320,7 @@ function serveShopifyAppHome(req, res, next) {
             <dl class="app-home-list">
               <div><dt>Detected shop</dt><dd>${escapeHtml(status.current_shop.shop_domain || 'Not detected')}</dd></div>
               <div><dt>Editable access</dt><dd>${status.current_shop.can_edit_settings ? 'Yes' : 'No'}</dd></div>
+              <div><dt>Embedded admin context</dt><dd>${shopContext.embeddedAdminContext ? 'Yes' : 'No'}</dd></div>
               <div><dt>Saved settings</dt><dd>${status.current_shop.has_saved_settings ? 'Yes' : 'No'}</dd></div>
               <div><dt>Last updated</dt><dd>${escapeHtml(status.current_shop.updated_at || 'Not saved yet')}</dd></div>
               <div><dt>Settings file</dt><dd><code>${escapeHtml(status.storage.file_path)}</code></dd></div>
