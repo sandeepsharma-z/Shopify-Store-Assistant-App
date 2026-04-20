@@ -135,6 +135,7 @@
 
     const payload = {
       shopDomain: getField('shopDomain').value.trim(),
+      embedded: config.embeddedAdminContext ? '1' : '0',
       settings: {
         shiprocketEmail: getField('shiprocketEmail').value.trim(),
         shiprocketPassword: getField('shiprocketPassword').value.trim(),

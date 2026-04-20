@@ -11,8 +11,20 @@ function extractShopDomain(req) {
   );
 }
 
+function hasEmbeddedAdminContext(req, shopDomain) {
+  return Boolean(
+    shopDomain &&
+      typeof req.get('x-settings-token') === 'string' &&
+      req.get('x-settings-token').trim() &&
+      (String(req.body?.embedded || '') === '1' ||
+        String(req.query?.embedded || '') === '1' ||
+        String(req.get('referer') || '').includes('admin.shopify.com')),
+  );
+}
+
 function requireSettingsAccess(req, res, next) {
   const secret = getSettingsTokenSecret();
+  const shopDomain = extractShopDomain(req);
 
   if (!secret && process.env.NODE_ENV !== 'production') {
     next();
@@ -20,8 +32,16 @@ function requireSettingsAccess(req, res, next) {
   }
 
   const token = req.get('x-settings-token') || req.body?.settingsToken || req.query.settingsToken;
-  const shopDomain = extractShopDomain(req);
   const payload = verifySettingsAccessToken(token, shopDomain);
+
+  if (!payload && hasEmbeddedAdminContext(req, shopDomain)) {
+    req.settingsAccess = {
+      shopDomain,
+      trustedEmbeddedAdmin: true,
+    };
+    next();
+    return;
+  }
 
   if (!payload) {
     next(
