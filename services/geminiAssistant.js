@@ -294,6 +294,7 @@ function buildPrompt({
     `5. Do not echo back the customer's question.`,
     `6. Keep responses concise: 1-4 sentences for simple questions. Use a numbered list only when showing 2+ products.`,
     `7. ${languageGuide}`,
+    `8. OFF-TOPIC RULE: If the customer asks anything NOT related to this store — such as general knowledge, news, jokes, politics, geography, coding, personal advice, or any topic unrelated to products, orders, shipping, returns, or store support — do NOT answer it. Instead reply with exactly this style: "I can only help with questions about our store — products, collections, order tracking, and policies. Feel free to ask me anything about [store name]!" (replace [store name] with the actual store name, and match the customer's language/Hinglish if needed).`,
     ``,
     `CUSTOMER MESSAGE: ${message}`,
     ``,
