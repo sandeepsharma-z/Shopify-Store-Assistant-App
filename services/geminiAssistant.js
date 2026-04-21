@@ -301,6 +301,8 @@ function buildPrompt({
     `DETECTED INTENT: ${primaryIntent || 'fallback'}`,
     `YOUR TASK: ${intentInstructions[primaryIntent] || intentInstructions.fallback}`,
     ``,
+    `FOLLOW-UP RULE: If the customer's message does not mention a product name but the conversation history shows they were asking about a specific product or topic, treat this as a follow-up about that same product/topic. Answer using the catalog data below which has been fetched for that context.`,
+    ``,
     `--- STORE DETAILS ---`,
     storeDetails || 'No store details configured.',
     ``,
@@ -314,6 +316,20 @@ function buildPrompt({
   ];
 
   return sections.join('\n').trim();
+}
+
+function extractTopicFromHistory(history) {
+  // Walk recent user messages backwards to find the last product search term
+  const userTurns = history.filter((t) => t.role === 'user').slice(-4).reverse();
+
+  for (const turn of userTurns) {
+    const analyzed = analyzeCatalogMessage(turn.text);
+    if (analyzed.searchTerm && analyzed.searchTerm.length > 2) {
+      return analyzed.searchTerm;
+    }
+  }
+
+  return null;
 }
 
 function extractGeminiText(payload) {
@@ -345,6 +361,7 @@ async function createGeminiReply({ message, shopDomain, primaryIntent, history }
   const replyLanguage = detectReplyLanguage(message);
 
   const skipCatalog = primaryIntent === 'greeting' || primaryIntent === 'thanks';
+  const historyTurns = Array.isArray(history) ? history : [];
   let catalogReply = null;
 
   if (!skipCatalog) {
@@ -355,6 +372,24 @@ async function createGeminiReply({ message, shopDomain, primaryIntent, history }
         message: error.message,
         shopDomain,
       });
+    }
+
+    // If current message returned no catalog results (follow-up question with no product name),
+    // look back through history to find the last product/topic the user asked about
+    // and re-fetch catalog data for it so Gemini has the right context.
+    const hasNoCatalogData =
+      !catalogReply ||
+      !catalogReply.catalog ||
+      catalogReply.intent === 'catalog_not_configured' ||
+      (Array.isArray(catalogReply.catalog?.items) && catalogReply.catalog.items.length === 0);
+
+    if (hasNoCatalogData && historyTurns.length) {
+      const lastTopic = extractTopicFromHistory(historyTurns);
+      if (lastTopic) {
+        try {
+          catalogReply = await createCatalogReply({ message: lastTopic, shopDomain });
+        } catch (_) {}
+      }
     }
   }
 
@@ -369,7 +404,6 @@ async function createGeminiReply({ message, shopDomain, primaryIntent, history }
     replyLanguage,
   });
 
-  const historyTurns = Array.isArray(history) ? history : [];
   const contents = [];
 
   // Add prior conversation turns so Gemini remembers context
