@@ -52,7 +52,11 @@ function ensureStoreSettingsDirectory() {
 }
 
 function isReadonlyFsError(error) {
-  return ['EROFS', 'EPERM', 'EACCES', 'ENOENT'].includes(error?.code);
+  return ['EROFS', 'EPERM', 'EACCES', 'ENOENT', 'ENOSPC', 'EROFS'].includes(error?.code);
+}
+
+function isFsError(error) {
+  return error && typeof error.code === 'string';
 }
 
 function getEncryptionSecret() {
@@ -127,15 +131,12 @@ function readStore() {
   try {
     filePath = ensureStoreSettingsDirectory();
   } catch (error) {
-    if (isReadonlyFsError(error)) {
-      logger.warn('Store settings file path is not writable, using volatile store', {
-        message: error.message,
-        filePath: getStoreSettingsFilePath(),
-      });
-      return volatileStore;
-    }
-
-    throw error;
+    logger.warn('Store settings directory unavailable, using volatile store', {
+      message: error.message,
+      code: error.code,
+      filePath: getStoreSettingsFilePath(),
+    });
+    return volatileStore;
   }
 
   if (!fs.existsSync(filePath)) {
@@ -260,7 +261,11 @@ function decryptStoredSettings(storedSettings = {}) {
     }
 
     if (SENSITIVE_FIELDS.has(field)) {
-      resolved[field] = storedSettings[field] ? decryptValue(storedSettings[field]) : null;
+      try {
+        resolved[field] = storedSettings[field] ? decryptValue(storedSettings[field]) : null;
+      } catch {
+        resolved[field] = null;
+      }
       return;
     }
 
@@ -272,18 +277,29 @@ function decryptStoredSettings(storedSettings = {}) {
 
 function getStoreSettings(shopDomain) {
   const normalizedShop = validateShopDomainOrThrow(shopDomain);
-  const store = readStore();
+
+  let store;
+  try {
+    store = readStore();
+  } catch {
+    return null;
+  }
+
   const shopEntry = store.shops[normalizedShop];
 
   if (!shopEntry || !shopEntry.settings) {
     return null;
   }
 
-  return {
-    shopDomain: normalizedShop,
-    updatedAt: shopEntry.updatedAt || null,
-    settings: decryptStoredSettings(shopEntry.settings),
-  };
+  try {
+    return {
+      shopDomain: normalizedShop,
+      updatedAt: shopEntry.updatedAt || null,
+      settings: decryptStoredSettings(shopEntry.settings),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function saveStoreSettings(shopDomain, payload = {}) {
