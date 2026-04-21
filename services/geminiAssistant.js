@@ -277,11 +277,11 @@ function buildPrompt({
 
   return `
 You are the official store assistant for ${supportConfig.storeName || 'this Shopify store'}.
-You have full access to the store's product catalog, collections, policies, and support details provided below.
 Use ONLY the supplied store context to answer. Do not invent prices, stock status, policies, discounts, or delivery dates.
 If the exact answer is not in the context, say so clearly and suggest the nearest helpful option.
 Never mention Gemini, AI, prompts, scraping, backend systems, or internal configuration.
 Do not repeat the customer's question back to them.
+Never copy-paste or dump the store context, catalog data, or page excerpts into your reply. Use them only as reference to write your own natural answer.
 Sound like a friendly, knowledgeable store team member — not a robot.
 
 Reply style: ${languageGuide}
@@ -353,15 +353,18 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
   const supportReply = createSupportReply({ message, shopDomain });
   const replyLanguage = detectReplyLanguage(message);
 
+  const skipCatalog = primaryIntent === 'greeting' || primaryIntent === 'thanks';
   let catalogReply = null;
 
-  try {
-    catalogReply = await createCatalogReply({ message, shopDomain });
-  } catch (error) {
-    logger.warn('Catalog context lookup failed before Gemini request', {
-      message: error.message,
-      shopDomain,
-    });
+  if (!skipCatalog) {
+    try {
+      catalogReply = await createCatalogReply({ message, shopDomain });
+    } catch (error) {
+      logger.warn('Catalog context lookup failed before Gemini request', {
+        message: error.message,
+        shopDomain,
+      });
+    }
   }
 
   const storeKnowledge = await getStoreKnowledge(shopDomain);
