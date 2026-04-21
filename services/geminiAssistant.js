@@ -310,13 +310,18 @@ ${pageSummary || 'No page excerpts available.'}
 --- DETERMINISTIC HINTS ---
 ${deterministicHints || 'None.'}
 
+Formatting rules (strictly follow):
+- Plain text only. No markdown — no ##, ###, **, *, --, ---, >, bullet points, or any symbols.
+- No section headers, no dividers, no bold/italic.
+- If listing products, write them as a numbered plain-text list: "1. Product Name — Price — availability note."
+- Keep responses concise — 2 to 5 sentences unless listing multiple products.
+
 Response rules:
 1. Give a direct answer first — no preamble like "Based on the context" or "Sure!".
 2. For product queries: mention product name, price, availability, and a key feature if present.
-3. For policy queries: quote or summarize the actual policy from context.
-4. For greetings: be warm, list 3-4 things you can help with, invite a question.
+3. For policy queries: summarize the actual policy from context in plain sentences.
+4. For greetings: be warm, mention 3-4 things you can help with in one sentence, invite a question.
 5. For unclear queries: use whatever context is available and offer a helpful next step.
-6. Keep responses concise — 2 to 6 sentences unless listing multiple products.
 `.trim();
 }
 
