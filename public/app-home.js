@@ -79,14 +79,14 @@
     setAlert('Loading saved settings...', 'info');
 
     try {
-      const payload = await requestJson(
-        config.endpoints.settings + '?shop=' + encodeURIComponent(config.shopDomain),
-        {
-          headers: {
-            'x-settings-token': config.settingsToken,
-          },
+      var settingsUrl = config.endpoints.settings + '?shop=' + encodeURIComponent(config.shopDomain);
+      if (config.embeddedAdminContext) settingsUrl += '&embedded=1';
+
+      const payload = await requestJson(settingsUrl, {
+        headers: {
+          'x-settings-token': config.settingsToken,
         },
-      );
+      });
 
       fillForm(payload);
       setDisabled(false);

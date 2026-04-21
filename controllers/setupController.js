@@ -42,7 +42,7 @@ function resolveShopContext(req) {
     hmacValid,
     embeddedAdminContext,
     canEdit,
-    settingsToken: canEdit ? createSettingsAccessToken({ shopDomain: requestedShop }) : null,
+    settingsToken: canEdit ? createSettingsAccessToken({ shopDomain: requestedShop, ttlMs: 4 * 60 * 60 * 1000 }) : null,
   };
 }
 

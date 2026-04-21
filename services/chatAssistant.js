@@ -1,11 +1,6 @@
 const { fetchTracking } = require('./shiprocket');
 const { createGeminiReply } = require('./geminiAssistant');
-const {
-  DEFAULT_CATALOG_SUGGESTIONS,
-  analyzeCatalogMessage,
-  createCatalogReply,
-} = require('./shopifyCatalog');
-const { createSupportReply } = require('./storeSupport');
+const { DEFAULT_CATALOG_SUGGESTIONS, analyzeCatalogMessage } = require('./shopifyCatalog');
 
 function normalizeMessage(message) {
   return String(message || '').trim();
@@ -211,6 +206,10 @@ function countKeywordHits(text, keywords) {
 }
 
 function classifyMessage(message) {
+  const smallTalk = detectSmallTalk(message);
+  if (smallTalk === 'greeting') return 'greeting';
+  if (smallTalk === 'thanks') return 'thanks';
+
   const text = toComparableText(message);
   const trackingScore = countKeywordHits(text, TRACKING_KEYWORDS);
   const supportScore = countKeywordHits(text, SUPPORT_KEYWORDS);
@@ -415,107 +414,13 @@ async function handleTrackingConversation(message) {
 async function createChatReply({ message, shopDomain }) {
   const primaryIntent = classifyMessage(message);
 
-  // 1) Tracking always first
+  // 1) Tracking always first — deterministic, never goes to Gemini
   const trackingReply = await handleTrackingConversation(message);
   if (trackingReply) {
     return trackingReply;
   }
 
-  // 2) Small talk
-  const smallTalkIntent = detectSmallTalk(message);
-
-  if (smallTalkIntent === 'greeting') {
-    return buildResponse({
-      source: 'faq',
-      intent: 'greeting',
-      reply:
-        'Hi there. I can help with live order tracking, product search, collection discovery, price checks, stock availability, shipping questions, returns, payments, and store contact details. Send your AWB number, order ID, product keyword, or question directly.',
-      suggestions: ['Track Your Order', 'Show Best Sellers', 'Shipping Policy', 'Contact Support'],
-    });
-  }
-
-  if (smallTalkIntent === 'thanks') {
-    return buildResponse({
-      source: 'faq',
-      intent: 'thanks',
-      reply:
-        'Happy to help. Send another AWB number, order ID, product keyword, collection name, or support question whenever you need.',
-      suggestions: ['Track Your Order', 'Show Best Sellers', 'Refund Policy', 'Contact Support'],
-    });
-  }
-
-  // 3) Deterministic support first
-  if (primaryIntent === 'support') {
-    const supportReply = createSupportReply({
-      message,
-      shopDomain,
-    });
-
-    if (supportReply) {
-      return buildResponse(supportReply);
-    }
-  }
-
-  // 4) Deterministic catalog first
-  if (primaryIntent === 'catalog') {
-    try {
-      const catalogReply = await createCatalogReply({
-        message,
-        shopDomain,
-      });
-
-      if (catalogReply?.intent === 'catalog_not_configured') {
-        return buildResponse({
-          success: true,
-          source: 'faq',
-          intent: 'assistant_fallback',
-          reply:
-            'I can help with live shipment tracking right now. For products and collections, connect SHOPIFY_STORE_DOMAIN and SHOPIFY_STOREFRONT_ACCESS_TOKEN on the backend. You can also ask about shipping, returns, payments, and support details.',
-          suggestions: ['Track my order', 'Check AWB status', 'Shipping policy', 'Contact support'],
-        });
-      }
-
-      if (catalogReply) {
-        return buildResponse(catalogReply);
-      }
-    } catch (error) {
-      return buildResponse({
-        success: false,
-        source: 'catalog',
-        intent: 'catalog_lookup_failed',
-        reply:
-          'I could not load the store catalog right now. Please try again in a moment, or send an AWB number for live tracking.',
-        suggestions: ['Track Your Order', 'Refund Policy', 'Privacy Policy', 'Terms of Service'],
-      });
-    }
-  }
-
-  // 5) Fallback support for mixed or unclear cases
-  if (primaryIntent === 'fallback') {
-    const supportReply = createSupportReply({
-      message,
-      shopDomain,
-    });
-
-    if (supportReply && supportReply.intent !== 'assistant_fallback') {
-      return buildResponse(supportReply);
-    }
-
-    try {
-      const catalogReply = await createCatalogReply({
-        message,
-        shopDomain,
-      });
-
-      if (catalogReply && catalogReply.intent !== 'catalog_not_configured') {
-        return buildResponse(catalogReply);
-      }
-    } catch (error) {
-      // ignore and continue to Gemini fallback
-    }
-  }
-
-  // 6) Gemini only as final fallback / polish layer
+  // 2) All other intents handled by Gemini with full store context
   const geminiReply = await createGeminiReply({
     message,
     shopDomain,
@@ -526,7 +431,7 @@ async function createChatReply({ message, shopDomain }) {
     return buildResponse(geminiReply);
   }
 
-  // 7) Final hard fallback
+  // 3) Final hard fallback
   return buildResponse({
     success: true,
     source: 'faq',

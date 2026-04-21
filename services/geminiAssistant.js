@@ -255,76 +255,68 @@ function buildPrompt({
     .map((entry, index) => `${index + 1}. ${entry}`)
     .join('\n');
 
-  const strictIntentGuide = {
+  const intentGuide = {
+    greeting:
+      'The customer is greeting you. Reply warmly, introduce what you can help with (order tracking, products, collections, policies, support), and invite them to ask anything.',
+    thanks:
+      'The customer is thanking you. Respond warmly and invite them to ask anything else they need.',
     tracking:
-      'Tracking questions must stay strictly grounded in backend tracking data. If no tracking payload exists here, do not fabricate shipment status.',
+      'Tracking questions must stay strictly grounded in backend tracking data. If no tracking payload exists here, ask the customer to share their AWB number or order ID.',
     catalog:
-      'Catalog questions should prioritize exact or close product and collection matches, especially title + description overlaps.',
+      'Answer using the catalog context below. Mention specific product names, prices, and availability. If multiple items match, briefly list the best ones.',
     support:
-      'Support and policy questions should answer from saved support config and scraped policy pages only.',
+      'Answer from the saved store details and scraped store pages only. Summarize the actual policy wording. Give contact details if available.',
     fallback:
-      'Fallback questions should use the closest grounded store information and keep the answer brief.',
+      'Use all available store context — catalog, policies, and support details — to give the most helpful answer possible. Keep it brief and direct.',
   };
 
   const languageGuide =
     replyLanguage === 'hinglish'
-      ? 'Reply in simple Hinglish using Roman script. Keep product names, policy names, and technical terms in English when needed.'
-      : 'Reply in natural English only.';
+      ? 'Reply in simple Hinglish using Roman script. Keep product names, policy names, prices, and technical terms in English.'
+      : 'Reply in natural, friendly English.';
 
   return `
-You are a grounded Shopify storefront assistant.
-Use only the supplied store context.
-Do not invent facts, prices, discounts, stock, policies, shipping promises, delivery dates, product specs, or tracking updates.
-If the exact answer is not present, say that clearly and give the closest grounded next step.
-Keep the answer concise and customer-friendly, usually 2 to 5 sentences.
-When the user asks about products, use product titles, product descriptions, product type, brand, and collection names together before deciding relevance.
-When several items match, mention the best few matches in a natural sentence.
-When the user asks about policies, summarize the actual policy wording from context instead of giving generic ecommerce advice.
-When the user asks about the store, brand, or support, use only the saved support details and page excerpts below.
-Never mention Gemini, prompts, internal context, scraping, backend logic, configuration, or hidden data structures.
-Do not repeat the user's question.
-Do not sound robotic.
+You are the official store assistant for ${supportConfig.storeName || 'this Shopify store'}.
+You have full access to the store's product catalog, collections, policies, and support details provided below.
+Use ONLY the supplied store context to answer. Do not invent prices, stock status, policies, discounts, or delivery dates.
+If the exact answer is not in the context, say so clearly and suggest the nearest helpful option.
+Never mention Gemini, AI, prompts, scraping, backend systems, or internal configuration.
+Do not repeat the customer's question back to them.
+Sound like a friendly, knowledgeable store team member — not a robot.
 
-Primary intent:
-${primaryIntent || 'fallback'}
+Reply style: ${languageGuide}
 
-Intent rule:
-${strictIntentGuide[primaryIntent] || strictIntentGuide.fallback}
-
-Reply style:
-${languageGuide}
+Primary intent: ${primaryIntent || 'fallback'}
+Guidance: ${intentGuide[primaryIntent] || intentGuide.fallback}
 
 Parsed request notes:
 ${formatRequestIntentSummary(message)}
 
-Customer question:
+Customer message:
 ${message}
 
-Detected shop:
-${shopDomain || supportConfig.storeUrl || 'Unknown'}
+--- STORE DETAILS ---
+${supportSummary || 'No saved store details configured.'}
 
-Saved store details:
-${supportSummary || 'No saved store details available.'}
+--- CATALOG CONTEXT ---
+${catalogSummary || 'No catalog matches found for this query.'}
 
-Deterministic assistant hints:
-${deterministicHints || 'No deterministic hint available.'}
-
-Catalog context:
-${catalogSummary || 'No direct catalog matches were found.'}
-
-Catalog card guidance:
+--- CATALOG CARD GUIDANCE ---
 ${formatCatalogCardContext(catalogReply?.catalog)}
 
-Store page excerpts:
-${pageSummary || 'No page excerpts were available.'}
+--- STORE PAGE EXCERPTS ---
+${pageSummary || 'No page excerpts available.'}
 
-Answer requirements:
-- Prefer a direct answer first.
-- If a product is relevant, mention why it matches the user request.
-- If policy or support details are asked, summarize those details directly.
-- If nothing exact matches, say so and suggest a nearby product, collection, policy page, or tracking lookup.
-- Do not start with "Based on the provided context" or similar filler.
-- Sound like a polished store assistant, not like an AI tool.
+--- DETERMINISTIC HINTS ---
+${deterministicHints || 'None.'}
+
+Response rules:
+1. Give a direct answer first — no preamble like "Based on the context" or "Sure!".
+2. For product queries: mention product name, price, availability, and a key feature if present.
+3. For policy queries: quote or summarize the actual policy from context.
+4. For greetings: be warm, list 3-4 things you can help with, invite a question.
+5. For unclear queries: use whatever context is available and offer a helpful next step.
+6. Keep responses concise — 2 to 6 sentences unless listing multiple products.
 `.trim();
 }
 
@@ -358,15 +350,13 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
 
   let catalogReply = null;
 
-  if (primaryIntent !== 'support') {
-    try {
-      catalogReply = await createCatalogReply({ message, shopDomain });
-    } catch (error) {
-      logger.warn('Catalog context lookup failed before Gemini request', {
-        message: error.message,
-        shopDomain,
-      });
-    }
+  try {
+    catalogReply = await createCatalogReply({ message, shopDomain });
+  } catch (error) {
+    logger.warn('Catalog context lookup failed before Gemini request', {
+      message: error.message,
+      shopDomain,
+    });
   }
 
   const storeKnowledge = await getStoreKnowledge(shopDomain);
@@ -390,7 +380,7 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
           parts: [
             {
               text:
-                'You are a grounded Shopify storefront assistant. Use only the supplied store context. Be concise, helpful, and do not invent facts.',
+                'You are the official store assistant. You have access to the store\'s full catalog, policies, and support details. Use only the supplied store context. Be helpful, friendly, and never invent facts.',
             },
           ],
         },
@@ -401,9 +391,9 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
           },
         ],
         generationConfig: {
-          temperature: 0.1,
-          topP: 0.9,
-          maxOutputTokens: 360,
+          temperature: 0.15,
+          topP: 0.92,
+          maxOutputTokens: 500,
         },
       },
       {
