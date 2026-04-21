@@ -1248,11 +1248,24 @@ async function createCatalogReply({ message, shopDomain }) {
 
   const request = analyzeCatalogMessage(message);
 
+  // Build a fuzzy search query: each token gets a wildcard prefix so partial
+  // names like "double" match "DOUBLE TROUBLE", "ring" matches "Super Ring", etc.
+  function buildFuzzyQuery(term) {
+    if (!term) return null;
+    const tokens = term.trim().split(/\s+/).filter(Boolean);
+    if (tokens.length === 1) {
+      return `title:${tokens[0]}* OR ${tokens[0]}`;
+    }
+    return tokens.map((t) => `${t}*`).join(' OR ');
+  }
+
+  const fuzzyTerm = buildFuzzyQuery(request.searchTerm);
+
   const payload = await storefrontQuery(config, {
     productFirst: 8,
     collectionFirst: 6,
-    productQuery: request.searchTerm,
-    collectionQuery: request.searchTerm,
+    productQuery: fuzzyTerm || request.searchTerm,
+    collectionQuery: fuzzyTerm || request.searchTerm,
   });
 
   const shop = normalizeShop(payload.shop);

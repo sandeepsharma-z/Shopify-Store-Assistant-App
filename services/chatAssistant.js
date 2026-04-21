@@ -275,6 +275,16 @@ function classifyMessage(message) {
     return 'catalog';
   }
 
+  // Short message with a product-like search term and no other intent → treat as catalog search
+  if (
+    catalogRequest.searchTerm &&
+    supportScore === 0 &&
+    !hasReference &&
+    !/\b(store|brand|about us|who are you|contact|support|customer care|privacy|refund|return|exchange|shipping|delivery|terms|payment|cod|cancel|cancellation|help)\b/.test(text)
+  ) {
+    return 'catalog';
+  }
+
   return 'fallback';
 }
 
