@@ -319,13 +319,27 @@ function buildPrompt({
 }
 
 function extractTopicFromHistory(history) {
-  // Walk recent user messages backwards to find the last product search term
-  const userTurns = history.filter((t) => t.role === 'user').slice(-4).reverse();
+  // Walk all recent turns backwards (user + assistant) to find the last
+  // product/collection/topic that was being discussed.
+  const recentTurns = history.slice(-8).reverse();
 
-  for (const turn of userTurns) {
-    const analyzed = analyzeCatalogMessage(turn.text);
-    if (analyzed.searchTerm && analyzed.searchTerm.length > 2) {
-      return analyzed.searchTerm;
+  for (const turn of recentTurns) {
+    if (turn.role === 'user') {
+      const analyzed = analyzeCatalogMessage(turn.text);
+      if (analyzed.searchTerm && analyzed.searchTerm.length > 2) {
+        return analyzed.searchTerm;
+      }
+    }
+
+    if (turn.role === 'assistant') {
+      // Extract product/collection name from assistant reply patterns like:
+      // "The best match is X." / "X is priced at..." / "X is in stock"
+      const nameMatch = turn.text.match(
+        /(?:best match(?:\s+is)?|here is|here are|found\s+|product(?:\s+is)?|collection(?:\s+is)?)\s+([A-Z][A-Za-z0-9\s()'&-]{2,60}?)(?:\.|,|\s+(?:is|at|for|–|-|—|priced|available))/,
+      );
+      if (nameMatch && nameMatch[1].trim().length > 2) {
+        return nameMatch[1].trim();
+      }
     }
   }
 
