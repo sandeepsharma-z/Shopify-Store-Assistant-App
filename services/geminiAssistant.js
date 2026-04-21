@@ -209,120 +209,78 @@ function formatRequestIntentSummary(message) {
 
 function buildPrompt({
   message,
-  shopDomain,
   primaryIntent,
-  supportReply,
   supportConfig,
   catalogReply,
   storeKnowledge,
   replyLanguage,
 }) {
-  const supportSummary = [
-    supportConfig.storeName ? `Store name: ${supportConfig.storeName}` : null,
-    supportConfig.supportEmail ? `Support email: ${supportConfig.supportEmail}` : null,
-    supportConfig.supportPhone ? `Support phone: ${supportConfig.supportPhone}` : null,
-    supportConfig.supportWhatsapp ? `Support WhatsApp: ${supportConfig.supportWhatsapp}` : null,
-    supportConfig.supportHours ? `Support hours: ${supportConfig.supportHours}` : null,
-    supportConfig.shippingPolicy ? `Shipping policy: ${truncate(supportConfig.shippingPolicy, 320)}` : null,
-    supportConfig.returnPolicy ? `Return policy: ${truncate(supportConfig.returnPolicy, 320)}` : null,
-    supportConfig.codPolicy ? `Payment policy: ${truncate(supportConfig.codPolicy, 220)}` : null,
-    supportConfig.cancellationPolicy
-      ? `Cancellation policy: ${truncate(supportConfig.cancellationPolicy, 220)}`
-      : null,
-    supportConfig.aboutText ? `About store: ${truncate(supportConfig.aboutText, 320)}` : null,
+  const storeDetails = [
+    supportConfig.storeName ? `Store: ${supportConfig.storeName}` : null,
+    supportConfig.supportEmail ? `Email: ${supportConfig.supportEmail}` : null,
+    supportConfig.supportPhone ? `Phone: ${supportConfig.supportPhone}` : null,
+    supportConfig.supportWhatsapp ? `WhatsApp: ${supportConfig.supportWhatsapp}` : null,
+    supportConfig.supportHours ? `Hours: ${supportConfig.supportHours}` : null,
+    supportConfig.shippingPolicy ? `Shipping: ${truncate(supportConfig.shippingPolicy, 280)}` : null,
+    supportConfig.returnPolicy ? `Returns: ${truncate(supportConfig.returnPolicy, 280)}` : null,
+    supportConfig.codPolicy ? `Payment: ${truncate(supportConfig.codPolicy, 200)}` : null,
+    supportConfig.cancellationPolicy ? `Cancellation: ${truncate(supportConfig.cancellationPolicy, 200)}` : null,
+    supportConfig.aboutText ? `About: ${truncate(supportConfig.aboutText, 280)}` : null,
     supportConfig.storeUrl ? `Store URL: ${supportConfig.storeUrl}` : null,
   ]
     .filter(Boolean)
     .join('\n');
 
-  const pageSummary = Array.isArray(storeKnowledge?.pages)
-    ? storeKnowledge.pages
-        .slice(0, 5)
-        .map(
-          (page, index) =>
-            `${index + 1}. ${page.name}${page.url ? ` (${page.url})` : ''}\nTitle: ${page.title || page.name}\nExcerpt: ${truncate(page.snippet, 560)}`,
-        )
-        .join('\n\n')
-    : '';
-
-  const catalogSummary =
+  const catalogContext =
     catalogReply?.catalog?.type === 'overview'
       ? formatOverviewCatalog(catalogReply.catalog)
       : formatCatalogItems(catalogReply?.catalog);
 
-  const deterministicHints = [supportReply?.reply, catalogReply?.reply]
-    .filter(Boolean)
-    .map((entry, index) => `${index + 1}. ${entry}`)
-    .join('\n');
+  const pageContext = Array.isArray(storeKnowledge?.pages)
+    ? storeKnowledge.pages
+        .slice(0, 4)
+        .map((page) => `${page.name}${page.url ? ` (${page.url})` : ''}: ${truncate(page.snippet, 400)}`)
+        .join('\n')
+    : '';
 
   const intentGuide = {
-    greeting:
-      'The customer is greeting you. Reply warmly, introduce what you can help with (order tracking, products, collections, policies, support), and invite them to ask anything.',
-    thanks:
-      'The customer is thanking you. Respond warmly and invite them to ask anything else they need.',
-    tracking:
-      'Tracking questions must stay strictly grounded in backend tracking data. If no tracking payload exists here, ask the customer to share their AWB number or order ID.',
-    catalog:
-      'Answer using the catalog context below. Mention specific product names, prices, and availability. If multiple items match, briefly list the best ones.',
-    support:
-      'Answer from the saved store details and scraped store pages only. Summarize the actual policy wording. Give contact details if available.',
-    fallback:
-      'Use all available store context — catalog, policies, and support details — to give the most helpful answer possible. Keep it brief and direct.',
+    greeting: 'Greet warmly. In one sentence mention what you can help with (tracking, products, policies). Do not list products.',
+    thanks: 'Thank them warmly and invite them to ask anything else. Keep it to 1-2 sentences.',
+    tracking: 'Ask the customer for their AWB number or order ID to check live status.',
+    catalog: 'Find the best matching products from the catalog context. Mention name, price, availability. List up to 3 if multiple match.',
+    support: 'Answer the policy or support question directly using the store details. Quote or summarize the relevant policy.',
+    fallback: 'Use all available context to give the most helpful answer. Be direct and brief.',
   };
 
   const languageGuide =
     replyLanguage === 'hinglish'
-      ? 'Reply in simple Hinglish using Roman script. Keep product names, policy names, prices, and technical terms in English.'
-      : 'Reply in natural, friendly English.';
+      ? 'Reply in simple Hinglish (Roman script). Keep product names, prices, and policy terms in English.'
+      : 'Reply in friendly, natural English.';
 
-  return `
-You are the official store assistant for ${supportConfig.storeName || 'this Shopify store'}.
-Use ONLY the supplied store context to answer. Do not invent prices, stock status, policies, discounts, or delivery dates.
-If the exact answer is not in the context, say so clearly and suggest the nearest helpful option.
-Never mention Gemini, AI, prompts, scraping, backend systems, or internal configuration.
-Do not repeat the customer's question back to them.
-Never copy-paste or dump the store context, catalog data, or page excerpts into your reply. Use them only as reference to write your own natural answer.
-Sound like a friendly, knowledgeable store team member — not a robot.
+  return `You are the store assistant for ${supportConfig.storeName || 'this store'}.
 
-Reply style: ${languageGuide}
+RULES (never break these):
+- Answer ONLY from the context provided below. Never invent prices, stock, policies, or delivery dates.
+- Write in plain text. No markdown, no ##, no **, no ---, no bullet symbols, no headers.
+- Never copy-paste context into your reply. Read it, then write your own answer.
+- Never mention AI, Gemini, prompts, or internal systems.
+- Do not repeat the customer's question.
+- Keep answers short: 1-4 sentences for simple questions, numbered list only when showing multiple products.
+- ${languageGuide}
 
-Primary intent: ${primaryIntent || 'fallback'}
-Guidance: ${intentGuide[primaryIntent] || intentGuide.fallback}
+INTENT: ${primaryIntent || 'fallback'}
+TASK: ${intentGuide[primaryIntent] || intentGuide.fallback}
 
-Parsed request notes:
-${formatRequestIntentSummary(message)}
+CUSTOMER SAID: ${message}
 
-Customer message:
-${message}
+STORE DETAILS:
+${storeDetails || 'Not configured.'}
 
---- STORE DETAILS ---
-${supportSummary || 'No saved store details configured.'}
+CATALOG:
+${catalogContext || 'No matching products found.'}
 
---- CATALOG CONTEXT ---
-${catalogSummary || 'No catalog matches found for this query.'}
-
---- CATALOG CARD GUIDANCE ---
-${formatCatalogCardContext(catalogReply?.catalog)}
-
---- STORE PAGE EXCERPTS ---
-${pageSummary || 'No page excerpts available.'}
-
---- DETERMINISTIC HINTS ---
-${deterministicHints || 'None.'}
-
-Formatting rules (strictly follow):
-- Plain text only. No markdown — no ##, ###, **, *, --, ---, >, bullet points, or any symbols.
-- No section headers, no dividers, no bold/italic.
-- If listing products, write them as a numbered plain-text list: "1. Product Name — Price — availability note."
-- Keep responses concise — 2 to 5 sentences unless listing multiple products.
-
-Response rules:
-1. Give a direct answer first — no preamble like "Based on the context" or "Sure!".
-2. For product queries: mention product name, price, availability, and a key feature if present.
-3. For policy queries: summarize the actual policy from context in plain sentences.
-4. For greetings: be warm, mention 3-4 things you can help with in one sentence, invite a question.
-5. For unclear queries: use whatever context is available and offer a helpful next step.
-`.trim();
+STORE PAGES:
+${pageContext || 'None.'}`.trim();
 }
 
 function extractGeminiText(payload) {
@@ -371,9 +329,7 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
 
   const prompt = buildPrompt({
     message,
-    shopDomain,
     primaryIntent,
-    supportReply,
     supportConfig,
     catalogReply,
     storeKnowledge,
