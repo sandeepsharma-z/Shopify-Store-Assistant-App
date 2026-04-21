@@ -215,72 +215,104 @@ function buildPrompt({
   storeKnowledge,
   replyLanguage,
 }) {
+  const hasCatalog =
+    catalogReply &&
+    catalogReply.intent !== 'catalog_not_configured' &&
+    catalogReply.catalog;
+
   const storeDetails = [
-    supportConfig.storeName ? `Store: ${supportConfig.storeName}` : null,
-    supportConfig.supportEmail ? `Email: ${supportConfig.supportEmail}` : null,
-    supportConfig.supportPhone ? `Phone: ${supportConfig.supportPhone}` : null,
-    supportConfig.supportWhatsapp ? `WhatsApp: ${supportConfig.supportWhatsapp}` : null,
-    supportConfig.supportHours ? `Hours: ${supportConfig.supportHours}` : null,
-    supportConfig.shippingPolicy ? `Shipping: ${truncate(supportConfig.shippingPolicy, 280)}` : null,
-    supportConfig.returnPolicy ? `Returns: ${truncate(supportConfig.returnPolicy, 280)}` : null,
-    supportConfig.codPolicy ? `Payment: ${truncate(supportConfig.codPolicy, 200)}` : null,
-    supportConfig.cancellationPolicy ? `Cancellation: ${truncate(supportConfig.cancellationPolicy, 200)}` : null,
-    supportConfig.aboutText ? `About: ${truncate(supportConfig.aboutText, 280)}` : null,
+    supportConfig.storeName ? `Store name: ${supportConfig.storeName}` : null,
     supportConfig.storeUrl ? `Store URL: ${supportConfig.storeUrl}` : null,
+    supportConfig.supportEmail ? `Support email: ${supportConfig.supportEmail}` : null,
+    supportConfig.supportPhone ? `Support phone: ${supportConfig.supportPhone}` : null,
+    supportConfig.supportWhatsapp ? `WhatsApp: ${supportConfig.supportWhatsapp}` : null,
+    supportConfig.supportHours ? `Support hours: ${supportConfig.supportHours}` : null,
+    supportConfig.shippingPolicy ? `Shipping policy: ${truncate(supportConfig.shippingPolicy, 350)}` : null,
+    supportConfig.returnPolicy ? `Return/refund policy: ${truncate(supportConfig.returnPolicy, 350)}` : null,
+    supportConfig.codPolicy ? `Payment/COD policy: ${truncate(supportConfig.codPolicy, 250)}` : null,
+    supportConfig.cancellationPolicy ? `Cancellation policy: ${truncate(supportConfig.cancellationPolicy, 250)}` : null,
+    supportConfig.aboutText ? `About the store: ${truncate(supportConfig.aboutText, 350)}` : null,
   ]
     .filter(Boolean)
     .join('\n');
 
-  const catalogContext =
-    catalogReply?.catalog?.type === 'overview'
-      ? formatOverviewCatalog(catalogReply.catalog)
-      : formatCatalogItems(catalogReply?.catalog);
+  const catalogContext = hasCatalog
+    ? (catalogReply.catalog.type === 'overview'
+        ? formatOverviewCatalog(catalogReply.catalog)
+        : formatCatalogItems(catalogReply.catalog))
+    : null;
 
-  const pageContext = Array.isArray(storeKnowledge?.pages)
+  const pageContext = Array.isArray(storeKnowledge?.pages) && storeKnowledge.pages.length
     ? storeKnowledge.pages
-        .slice(0, 4)
-        .map((page) => `${page.name}${page.url ? ` (${page.url})` : ''}: ${truncate(page.snippet, 400)}`)
-        .join('\n')
-    : '';
-
-  const intentGuide = {
-    greeting: 'Greet warmly. In one sentence mention what you can help with (tracking, products, policies). Do not list products.',
-    thanks: 'Thank them warmly and invite them to ask anything else. Keep it to 1-2 sentences.',
-    tracking: 'Ask the customer for their AWB number or order ID to check live status.',
-    catalog: 'Find the best matching products from the catalog context. Mention name, price, availability. List up to 3 if multiple match.',
-    support: 'Answer the policy or support question directly using the store details. Quote or summarize the relevant policy.',
-    fallback: 'Use all available context to give the most helpful answer. Be direct and brief.',
-  };
+        .slice(0, 5)
+        .map((page) => `[${page.name}]${page.url ? ` ${page.url}` : ''}\n${truncate(page.snippet, 500)}`)
+        .join('\n\n')
+    : null;
 
   const languageGuide =
     replyLanguage === 'hinglish'
-      ? 'Reply in simple Hinglish (Roman script). Keep product names, prices, and policy terms in English.'
-      : 'Reply in friendly, natural English.';
+      ? 'Reply in simple Hinglish using Roman script. Keep product names, prices, URLs, and policy terms in English.'
+      : 'Reply in friendly, conversational English.';
 
-  return `You are the store assistant for ${supportConfig.storeName || 'this store'}.
+  const intentInstructions = {
+    greeting: `Greet the customer warmly. In 1-2 sentences tell them what you can help with: finding products, checking prices and stock, order tracking by AWB or order ID, shipping/return/payment policies, and store contact. End with an open invitation to ask. Do NOT list any products.`,
 
-RULES (never break these):
-- Answer ONLY from the context provided below. Never invent prices, stock, policies, or delivery dates.
-- Write in plain text. No markdown, no ##, no **, no ---, no bullet symbols, no headers.
-- Never copy-paste context into your reply. Read it, then write your own answer.
-- Never mention AI, Gemini, prompts, or internal systems.
-- Do not repeat the customer's question.
-- Keep answers short: 1-4 sentences for simple questions, numbered list only when showing multiple products.
-- ${languageGuide}
+    thanks: `Respond warmly to their thanks in 1-2 sentences. Invite them to ask if they need anything else.`,
 
-INTENT: ${primaryIntent || 'fallback'}
-TASK: ${intentGuide[primaryIntent] || intentGuide.fallback}
+    tracking: `The customer wants to track an order. If they have NOT provided an AWB number or order ID, politely ask them to share it. Do NOT make up a tracking status.`,
 
-CUSTOMER SAID: ${message}
+    catalog: `The customer is asking about products or collections.
+- Look at the CATALOG DATA below and find the best matches.
+- For each matched product: state its name, price, stock status, and one key feature if available.
+- If multiple products match, list up to 3 as a numbered plain-text list.
+- If no exact match is found in the catalog, say so honestly and suggest the closest available option or ask them to rephrase.
+- Never invent a product that is not in the catalog data.`,
 
-STORE DETAILS:
-${storeDetails || 'Not configured.'}
+    support: `The customer has a support or policy question.
+- Answer directly from STORE DETAILS and STORE PAGES below.
+- For policy questions: summarize the relevant policy in plain language.
+- For contact questions: provide the available contact details.
+- For COD/payment questions: answer from the payment policy.
+- If the exact information is not available, say so and suggest they contact support.`,
 
-CATALOG:
-${catalogContext || 'No matching products found.'}
+    fallback: `The customer's question may span products, policies, or general store info.
+- First check CATALOG DATA for any product match.
+- Then check STORE DETAILS for any policy or support match.
+- Then check STORE PAGES for any additional info.
+- Give the most helpful answer you can from the available context.
+- If nothing matches, say you're not sure and invite them to ask in a different way or try a specific product name or policy name.`,
+  };
 
-STORE PAGES:
-${pageContext || 'None.'}`.trim();
+  const sections = [
+    `You are the official store assistant for ${supportConfig.storeName || 'this store'}.`,
+    ``,
+    `ABSOLUTE RULES — follow these no matter what:`,
+    `1. Answer ONLY using the context provided in this prompt. Never invent products, prices, stock, policies, or delivery dates.`,
+    `2. Plain text only — no markdown, no ##, no **, no *-, no ---, no section dividers, no bold/italic symbols.`,
+    `3. Never copy-paste raw context into your reply. Read the context, then write your OWN natural response.`,
+    `4. Never mention Gemini, AI, prompts, scraping, or any internal system.`,
+    `5. Do not echo back the customer's question.`,
+    `6. Keep responses concise: 1-4 sentences for simple questions. Use a numbered list only when showing 2+ products.`,
+    `7. ${languageGuide}`,
+    ``,
+    `CUSTOMER MESSAGE: ${message}`,
+    ``,
+    `DETECTED INTENT: ${primaryIntent || 'fallback'}`,
+    `YOUR TASK: ${intentInstructions[primaryIntent] || intentInstructions.fallback}`,
+    ``,
+    `--- STORE DETAILS ---`,
+    storeDetails || 'No store details configured.',
+    ``,
+    `--- CATALOG DATA ---`,
+    catalogContext || (catalogReply?.intent === 'catalog_not_configured'
+      ? 'Catalog not connected. Cannot answer product/price/stock questions from live data.'
+      : 'No matching products or collections found for this query.'),
+    ``,
+    `--- STORE PAGES ---`,
+    pageContext || 'No store pages available.',
+  ];
+
+  return sections.join('\n').trim();
 }
 
 function extractGeminiText(payload) {
