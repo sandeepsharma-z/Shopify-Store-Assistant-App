@@ -411,7 +411,7 @@ async function handleTrackingConversation(message) {
   }
 }
 
-async function createChatReply({ message, shopDomain }) {
+async function createChatReply({ message, shopDomain, history }) {
   const primaryIntent = classifyMessage(message);
 
   // 1) Tracking always first — deterministic, never goes to Gemini
@@ -420,11 +420,12 @@ async function createChatReply({ message, shopDomain }) {
     return trackingReply;
   }
 
-  // 2) All other intents handled by Gemini with full store context
+  // 2) All other intents handled by Gemini with full store context + history
   const geminiReply = await createGeminiReply({
     message,
     shopDomain,
     primaryIntent,
+    history: Array.isArray(history) ? history : [],
   });
 
   if (geminiReply) {

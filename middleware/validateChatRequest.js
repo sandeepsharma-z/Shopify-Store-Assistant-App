@@ -16,6 +16,30 @@ function getShopDomainValue(payload) {
   return '';
 }
 
+function getHistoryValue(payload) {
+  if (!Array.isArray(payload.history)) {
+    return [];
+  }
+
+  return payload.history
+    .filter(function isValidTurn(entry) {
+      return (
+        entry &&
+        typeof entry === 'object' &&
+        (entry.role === 'user' || entry.role === 'assistant') &&
+        typeof entry.text === 'string' &&
+        entry.text.trim()
+      );
+    })
+    .map(function normalizeTurn(entry) {
+      return {
+        role: entry.role,
+        text: String(entry.text).trim().slice(0, 400),
+      };
+    })
+    .slice(-12);
+}
+
 function createChatRequestValidator({ source = 'body' } = {}) {
   return (req, res, next) => {
     const payload = source === 'query' ? req.query : req.body || {};
@@ -42,6 +66,7 @@ function createChatRequestValidator({ source = 'body' } = {}) {
     req.chatRequest = {
       message,
       shopDomain: getShopDomainValue(payload) || fallbackShopDomain,
+      history: getHistoryValue(payload),
     };
 
     next();

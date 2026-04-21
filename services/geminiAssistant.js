@@ -332,7 +332,7 @@ function extractGeminiText(payload) {
   return text || null;
 }
 
-async function createGeminiReply({ message, shopDomain, primaryIntent }) {
+async function createGeminiReply({ message, shopDomain, primaryIntent, history }) {
   const gemini = getGeminiConfig(shopDomain);
 
   if (!gemini) {
@@ -369,6 +369,20 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
     replyLanguage,
   });
 
+  const historyTurns = Array.isArray(history) ? history : [];
+  const contents = [];
+
+  // Add prior conversation turns so Gemini remembers context
+  historyTurns.forEach(function addTurn(turn) {
+    contents.push({
+      role: turn.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: turn.text }],
+    });
+  });
+
+  // Current message with full store context prompt
+  contents.push({ role: 'user', parts: [{ text: prompt }] });
+
   try {
     const response = await axios.post(
       `${GEMINI_API_BASE_URL}/models/${encodeURIComponent(gemini.model)}:generateContent?key=${encodeURIComponent(gemini.apiKey)}`,
@@ -376,17 +390,11 @@ async function createGeminiReply({ message, shopDomain, primaryIntent }) {
         systemInstruction: {
           parts: [
             {
-              text:
-                'You are the official store assistant. You have access to the store\'s full catalog, policies, and support details. Use only the supplied store context. Be helpful, friendly, and never invent facts.',
+              text: `You are the official store assistant. Use only the supplied store context. Be helpful, friendly, and never invent facts. Remember the conversation history and answer follow-up questions naturally.`,
             },
           ],
         },
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }],
-          },
-        ],
+        contents,
         generationConfig: {
           temperature: 0.15,
           topP: 0.92,

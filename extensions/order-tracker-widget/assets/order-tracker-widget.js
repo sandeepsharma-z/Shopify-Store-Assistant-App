@@ -98,13 +98,31 @@
     return fallback;
   }
 
-  async function requestDirectAssistantReply(apiUrl, message, shopDomain) {
-    const requestPayload = {
-      message: message,
-    };
+  function buildHistoryPayload(messages) {
+    var turns = [];
+    var entries = messages.slice(-12);
+
+    for (var i = 0; i < entries.length; i++) {
+      var entry = entries[i];
+      if (entry.role === 'user' && entry.payload && typeof entry.payload.text === 'string' && entry.payload.text.trim()) {
+        turns.push({ role: 'user', text: entry.payload.text.trim().slice(0, 300) });
+      } else if (entry.role === 'assistant' && entry.payload && typeof entry.payload.reply === 'string' && entry.payload.reply.trim()) {
+        turns.push({ role: 'assistant', text: entry.payload.reply.trim().slice(0, 400) });
+      }
+    }
+
+    return turns;
+  }
+
+  async function requestDirectAssistantReply(apiUrl, message, shopDomain, history) {
+    const requestPayload = { message: message };
 
     if (typeof shopDomain === 'string' && shopDomain.trim()) {
       requestPayload.shopDomain = shopDomain.trim();
+    }
+
+    if (Array.isArray(history) && history.length) {
+      requestPayload.history = history;
     }
 
     const response = await fetch(apiUrl, {
@@ -127,47 +145,39 @@
     };
   }
 
-  async function requestAssistantReply(proxyPath, message, directApiUrl, shopDomain) {
+  async function requestAssistantReply(proxyPath, message, directApiUrl, shopDomain, history) {
     const normalizedPath = typeof proxyPath === 'string' && proxyPath.trim() ? proxyPath.trim() : '/apps/track-order/chat';
     const normalizedDirectApiUrl =
       typeof directApiUrl === 'string' && directApiUrl.trim() ? directApiUrl.trim() : '';
 
     if (isStorefrontProxyPath(normalizedPath)) {
-      const url = new URL(normalizedPath, window.location.origin);
+      const proxyPayload = { message: message, _client: 'widget' };
+      if (Array.isArray(history) && history.length) proxyPayload.history = history;
 
-      url.searchParams.set('message', message);
-      url.searchParams.set('_client', 'widget');
-
-      const proxyResponse = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
+      const proxyResponse = await fetch(normalizedPath, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         cache: 'no-store',
+        body: JSON.stringify(proxyPayload),
       });
-      const proxyPayload = await parseJsonSafe(proxyResponse);
+      const proxyResult = await parseJsonSafe(proxyResponse);
 
-      if (proxyResponse.ok && proxyPayload && typeof proxyPayload.reply === 'string' && proxyPayload.reply.trim()) {
-        return proxyPayload;
+      if (proxyResponse.ok && proxyResult && typeof proxyResult.reply === 'string' && proxyResult.reply.trim()) {
+        return proxyResult;
       }
 
       if (normalizedDirectApiUrl) {
-        const directResponse = await requestDirectAssistantReply(
-          normalizedDirectApiUrl,
-          message,
-          shopDomain,
-        );
-
+        const directResponse = await requestDirectAssistantReply(normalizedDirectApiUrl, message, shopDomain, history);
         if (directResponse.payload && typeof directResponse.payload.reply === 'string' && directResponse.payload.reply.trim()) {
           return directResponse.payload;
         }
       }
 
-      return proxyPayload;
+      return proxyResult;
     }
 
-    const directResponse = await requestDirectAssistantReply(normalizedPath, message, shopDomain);
+    const directResponse = await requestDirectAssistantReply(normalizedPath, message, shopDomain, history);
     return directResponse.payload;
   }
 
@@ -1241,7 +1251,8 @@
       setLoading(true);
 
       try {
-        const payload = await requestAssistantReply(proxyPath, message, directApiUrl, shopDomain);
+        const history = buildHistoryPayload(state.messages.slice(0, -1));
+        const payload = await requestAssistantReply(proxyPath, message, directApiUrl, shopDomain, history);
         const finalPayload =
           payload && typeof payload.reply === 'string' && payload.reply.trim()
             ? payload
