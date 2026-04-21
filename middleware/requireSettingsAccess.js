@@ -35,26 +35,16 @@ function requireSettingsAccess(req, res, next) {
 
   const secret = getSettingsTokenSecret();
 
-  // Production without a secret configured: block all requests
-  if (!secret) {
-    next(
-      new HttpError(
-        401,
-        'This settings request is not authorized. Open the app from Shopify admin and try again.',
-        'SETTINGS_ACCESS_DENIED',
-      ),
-    );
-    return;
-  }
+  // Try signed token first (only possible when a secret is configured)
+  if (secret) {
+    const token = req.get('x-settings-token') || req.body?.settingsToken || req.query.settingsToken;
+    const payload = verifySettingsAccessToken(token, shopDomain);
 
-  // Try signed token first
-  const token = req.get('x-settings-token') || req.body?.settingsToken || req.query.settingsToken;
-  const payload = verifySettingsAccessToken(token, shopDomain);
-
-  if (payload) {
-    req.settingsAccess = payload;
-    next();
-    return;
+    if (payload) {
+      req.settingsAccess = payload;
+      next();
+      return;
+    }
   }
 
   // Fallback: valid Shopify shop domain + embedded admin indicators
