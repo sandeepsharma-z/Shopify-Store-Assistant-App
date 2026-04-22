@@ -1275,8 +1275,8 @@ async function createCatalogReply({ message, shopDomain }) {
     if (!term) return [];
     const variants = new Set();
 
-    // "3" → "3.0"
-    const withPoint = term.replace(/\b(\d+)(?!\.\d)\b/g, '$1.0');
+    // "3" → "3.0" (only standalone integers not already part of a decimal like "3.0")
+    const withPoint = term.replace(/(?<!\.)(\b\d+\b)(?!\.\d)/g, '$1.0');
     if (withPoint !== term) variants.add(withPoint);
 
     // "3.0" → "3"
