@@ -214,24 +214,27 @@ function buildPrompt({
   catalogReply,
   storeKnowledge,
   replyLanguage,
+  historyTurns,
 }) {
   const hasCatalog =
     catalogReply &&
     catalogReply.intent !== 'catalog_not_configured' &&
     catalogReply.catalog;
 
+  const storeName = supportConfig.storeName || 'this store';
+
   const storeDetails = [
-    supportConfig.storeName ? `Store name: ${supportConfig.storeName}` : null,
+    `Store name: ${storeName}`,
     supportConfig.storeUrl ? `Store URL: ${supportConfig.storeUrl}` : null,
     supportConfig.supportEmail ? `Support email: ${supportConfig.supportEmail}` : null,
     supportConfig.supportPhone ? `Support phone: ${supportConfig.supportPhone}` : null,
     supportConfig.supportWhatsapp ? `WhatsApp: ${supportConfig.supportWhatsapp}` : null,
     supportConfig.supportHours ? `Support hours: ${supportConfig.supportHours}` : null,
-    supportConfig.shippingPolicy ? `Shipping policy: ${truncate(supportConfig.shippingPolicy, 350)}` : null,
-    supportConfig.returnPolicy ? `Return/refund policy: ${truncate(supportConfig.returnPolicy, 350)}` : null,
-    supportConfig.codPolicy ? `Payment/COD policy: ${truncate(supportConfig.codPolicy, 250)}` : null,
-    supportConfig.cancellationPolicy ? `Cancellation policy: ${truncate(supportConfig.cancellationPolicy, 250)}` : null,
-    supportConfig.aboutText ? `About the store: ${truncate(supportConfig.aboutText, 350)}` : null,
+    supportConfig.shippingPolicy ? `Shipping policy: ${truncate(supportConfig.shippingPolicy, 400)}` : null,
+    supportConfig.returnPolicy ? `Return/refund policy: ${truncate(supportConfig.returnPolicy, 400)}` : null,
+    supportConfig.codPolicy ? `Payment/COD policy: ${truncate(supportConfig.codPolicy, 300)}` : null,
+    supportConfig.cancellationPolicy ? `Cancellation policy: ${truncate(supportConfig.cancellationPolicy, 300)}` : null,
+    supportConfig.aboutText ? `About the store: ${truncate(supportConfig.aboutText, 400)}` : null,
   ]
     .filter(Boolean)
     .join('\n');
@@ -245,77 +248,59 @@ function buildPrompt({
   const pageContext = Array.isArray(storeKnowledge?.pages) && storeKnowledge.pages.length
     ? storeKnowledge.pages
         .slice(0, 5)
-        .map((page) => `[${page.name}]${page.url ? ` ${page.url}` : ''}\n${truncate(page.snippet, 500)}`)
+        .map((p) => `[${p.name}]${p.url ? ` — ${p.url}` : ''}\n${truncate(p.snippet, 500)}`)
         .join('\n\n')
+    : null;
+
+  const recentContext = Array.isArray(historyTurns) && historyTurns.length
+    ? historyTurns
+        .slice(-6)
+        .map((t) => `${t.role === 'assistant' ? 'Assistant' : 'Customer'}: ${t.text}`)
+        .join('\n')
     : null;
 
   const languageGuide =
     replyLanguage === 'hinglish'
-      ? 'Reply in simple Hinglish using Roman script. Keep product names, prices, URLs, and policy terms in English.'
-      : 'Reply in friendly, conversational English.';
+      ? 'Reply in simple Hinglish (Roman script). Keep product names, prices, URLs, and policy terms in English.'
+      : 'Reply in friendly, natural English.';
 
-  const intentInstructions = {
-    greeting: `Greet the customer warmly. In 1-2 sentences tell them what you can help with: finding products, checking prices and stock, order tracking by AWB or order ID, shipping/return/payment policies, and store contact. End with an open invitation to ask. Do NOT list any products.`,
+  return `You are the smart store assistant for ${storeName}. You understand natural language, follow-up questions, partial names, and casual phrasing.
 
-    thanks: `Respond warmly to their thanks in 1-2 sentences. Invite them to ask if they need anything else.`,
+STRICT RULES:
+1. Use ONLY the provided store context. Never invent products, prices, policies, stock status, or delivery dates.
+2. Plain text only. No ##, **, *-, ---, bullets, or any markdown symbols.
+3. Write your own natural answer. Never paste raw context.
+4. Never reveal you are AI, Gemini, or any internal system.
+5. Do not repeat the customer's question.
+6. Length: 1-4 sentences for simple answers. Numbered list only for 2+ products.
+7. ${languageGuide}
+8. If the customer asks anything off-topic (general knowledge, jokes, politics, coding, etc.) — politely say: "I can only help with ${storeName} — products, collections, tracking, and policies."
 
-    tracking: `The customer wants to track an order. If they have NOT provided an AWB number or order ID, politely ask them to share it. Do NOT make up a tracking status.`,
+CUSTOMER'S CURRENT MESSAGE:
+${message}
 
-    catalog: `The customer is asking about products or collections.
-- Look at the CATALOG DATA below and find the best matches.
-- For each matched product: state its name, price, stock status, and one key feature if available.
-- If multiple products match, list up to 3 as a numbered plain-text list.
-- If no exact match is found in the catalog, say so honestly and suggest the closest available option or ask them to rephrase.
-- Never invent a product that is not in the catalog data.`,
+CONVERSATION SO FAR:
+${recentContext || 'This is the first message.'}
 
-    support: `The customer has a support or policy question.
-- Answer directly from STORE DETAILS and STORE PAGES below.
-- For policy questions: summarize the relevant policy in plain language.
-- For contact questions: provide the available contact details.
-- For COD/payment questions: answer from the payment policy.
-- If the exact information is not available, say so and suggest they contact support.`,
+WHAT TO DO:
+- Read the customer's message AND the conversation above together.
+- If the message is a follow-up (e.g. "price?", "available?", "tell me more", "kya color hai") without a product name, figure out from the conversation what product/topic they are continuing about.
+- If they mention a partial name (e.g. "double", "ring", "420"), match it to the closest product in CATALOG DATA.
+- If the question covers both a product AND a policy (e.g. "black paper price and return policy"), answer both in one response.
+- If nothing in the context matches, say so clearly and suggest what they can ask.
 
-    fallback: `The customer's question may span products, policies, or general store info.
-- First check CATALOG DATA for any product match.
-- Then check STORE DETAILS for any policy or support match.
-- Then check STORE PAGES for any additional info.
-- Give the most helpful answer you can from the available context.
-- If nothing matches, say you're not sure and invite them to ask in a different way or try a specific product name or policy name.`,
-  };
+DETECTED INTENT: ${primaryIntent || 'fallback'}
 
-  const sections = [
-    `You are the official store assistant for ${supportConfig.storeName || 'this store'}.`,
-    ``,
-    `ABSOLUTE RULES — follow these no matter what:`,
-    `1. Answer ONLY using the context provided in this prompt. Never invent products, prices, stock, policies, or delivery dates.`,
-    `2. Plain text only — no markdown, no ##, no **, no *-, no ---, no section dividers, no bold/italic symbols.`,
-    `3. Never copy-paste raw context into your reply. Read the context, then write your OWN natural response.`,
-    `4. Never mention Gemini, AI, prompts, scraping, or any internal system.`,
-    `5. Do not echo back the customer's question.`,
-    `6. Keep responses concise: 1-4 sentences for simple questions. Use a numbered list only when showing 2+ products.`,
-    `7. ${languageGuide}`,
-    `8. OFF-TOPIC RULE: If the customer asks anything NOT related to this store — such as general knowledge, news, jokes, politics, geography, coding, personal advice, or any topic unrelated to products, orders, shipping, returns, or store support — do NOT answer it. Instead reply with exactly this style: "I can only help with questions about our store — products, collections, order tracking, and policies. Feel free to ask me anything about [store name]!" (replace [store name] with the actual store name, and match the customer's language/Hinglish if needed).`,
-    ``,
-    `CUSTOMER MESSAGE: ${message}`,
-    ``,
-    `DETECTED INTENT: ${primaryIntent || 'fallback'}`,
-    `YOUR TASK: ${intentInstructions[primaryIntent] || intentInstructions.fallback}`,
-    ``,
-    `FOLLOW-UP RULE: If the customer's message does not mention a product name but the conversation history shows they were asking about a specific product or topic, treat this as a follow-up about that same product/topic. Answer using the catalog data below which has been fetched for that context.`,
-    ``,
-    `--- STORE DETAILS ---`,
-    storeDetails || 'No store details configured.',
-    ``,
-    `--- CATALOG DATA ---`,
-    catalogContext || (catalogReply?.intent === 'catalog_not_configured'
-      ? 'Catalog not connected. Cannot answer product/price/stock questions from live data.'
-      : 'No matching products or collections found for this query.'),
-    ``,
-    `--- STORE PAGES ---`,
-    pageContext || 'No store pages available.',
-  ];
+STORE DETAILS:
+${storeDetails || 'Not configured.'}
 
-  return sections.join('\n').trim();
+CATALOG DATA:
+${catalogContext || (catalogReply?.intent === 'catalog_not_configured'
+    ? 'Catalog not connected — cannot answer live product/stock/price questions.'
+    : 'No matching products or collections found for this query.')}
+
+STORE PAGES:
+${pageContext || 'None available.'}`.trim();
 }
 
 function extractTopicFromHistory(history) {
@@ -416,6 +401,7 @@ async function createGeminiReply({ message, shopDomain, primaryIntent, history }
     catalogReply,
     storeKnowledge,
     replyLanguage,
+    historyTurns,
   });
 
   const contents = [];
@@ -438,15 +424,18 @@ async function createGeminiReply({ message, shopDomain, primaryIntent, history }
         systemInstruction: {
           parts: [
             {
-              text: `You are the official store assistant. Use only the supplied store context. Be helpful, friendly, and never invent facts. Remember the conversation history and answer follow-up questions naturally.`,
+              text: `You are a smart, context-aware store assistant. You understand partial product names, follow-up questions, and casual phrasing. Use only the supplied store context. Reason carefully about what the customer is really asking before answering. Never invent facts.`,
             },
           ],
         },
         contents,
         generationConfig: {
-          temperature: 0.15,
-          topP: 0.92,
-          maxOutputTokens: 500,
+          temperature: 0.2,
+          topP: 0.95,
+          maxOutputTokens: 700,
+          thinkingConfig: {
+            thinkingBudget: 512,
+          },
         },
       },
       {

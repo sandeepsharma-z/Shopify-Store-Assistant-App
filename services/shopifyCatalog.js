@@ -1248,33 +1248,75 @@ async function createCatalogReply({ message, shopDomain }) {
 
   const request = analyzeCatalogMessage(message);
 
-  // Build a fuzzy search query: each token gets a wildcard prefix so partial
-  // names like "double" match "DOUBLE TROUBLE", "ring" matches "Super Ring", etc.
+  // Build a smart fuzzy query handling partial names, version numbers, etc.
+  // "drop 3" → matches "Drop 3.0"
+  // "double" → matches "DOUBLE TROUBLE"
   function buildFuzzyQuery(term) {
     if (!term) return null;
     const tokens = term.trim().split(/\s+/).filter(Boolean);
+
     if (tokens.length === 1) {
-      return `title:${tokens[0]}* OR ${tokens[0]}`;
+      // Single token: prefix wildcard covers partial names
+      return `title:${tokens[0]}* OR ${tokens[0]}*`;
     }
-    return tokens.map((t) => `${t}*`).join(' OR ');
+
+    // Multi-token: try the full phrase + each significant token with wildcard
+    const significant = tokens.filter((t) => t.length > 1);
+    const phraseQuery = significant.join(' ');
+    const wildcardQuery = significant.map((t) => `${t}*`).join(' ');
+    return phraseQuery === wildcardQuery
+      ? wildcardQuery
+      : `${phraseQuery} OR ${wildcardQuery}`;
+  }
+
+  // Generate version-expanded variants: "drop 3" → also search "drop 3.0",
+  // "drop 3.0" → also search "drop 3", so partial version typing still works.
+  function buildVersionVariants(term) {
+    if (!term) return [];
+    const variants = new Set();
+
+    // "3" → "3.0"
+    const withPoint = term.replace(/\b(\d+)(?!\.\d)\b/g, '$1.0');
+    if (withPoint !== term) variants.add(withPoint);
+
+    // "3.0" → "3"
+    const withoutPoint = term.replace(/\b(\d+)\.0\b/g, '$1');
+    if (withoutPoint !== term) variants.add(withoutPoint);
+
+    // First significant word alone (broadest catch-all)
+    const firstWord = term.split(/\s+/).find((t) => t.length > 2 && !/^\d/.test(t));
+    if (firstWord) variants.add(firstWord);
+
+    return [...variants].filter((v) => v && v !== term);
   }
 
   const fuzzyTerm = buildFuzzyQuery(request.searchTerm);
+  const versionVariants = buildVersionVariants(request.searchTerm || '');
 
-  const payload = await storefrontQuery(config, {
-    productFirst: 8,
-    collectionFirst: 6,
-    productQuery: fuzzyTerm || request.searchTerm,
-    collectionQuery: fuzzyTerm || request.searchTerm,
-  });
+  // Fire primary query + all variant queries in parallel for maximum coverage
+  const queryTargets = [
+    { productQuery: fuzzyTerm || request.searchTerm, collectionQuery: fuzzyTerm || request.searchTerm },
+    ...versionVariants.map((v) => ({ productQuery: buildFuzzyQuery(v) || v, collectionQuery: buildFuzzyQuery(v) || v })),
+  ];
 
-  const shop = normalizeShop(payload.shop);
+  const payloads = await Promise.all(
+    queryTargets.map((vars) =>
+      storefrontQuery(config, { productFirst: 8, collectionFirst: 6, ...vars }).catch(() => null),
+    ),
+  );
+
+  const shop = normalizeShop(payloads[0]?.shop);
+
+  // Merge products from all parallel queries, deduplicate by URL/handle
+  const allProductEdges = payloads.flatMap((p) => p?.products?.edges || []);
+  const allCollectionEdges = payloads.flatMap((p) => p?.collections?.edges || []);
 
   const products = rankProducts(
     filterProducts(
-      (payload.products?.edges || [])
-        .map((edge) => normalizeProduct(edge?.node, config.shopDomain))
-        .filter(Boolean),
+      dedupeByKey(
+        allProductEdges.map((edge) => normalizeProduct(edge?.node, config.shopDomain)).filter(Boolean),
+        (p) => p.url || p.handle || p.title,
+      ),
       request,
     ),
     request,
@@ -1282,57 +1324,13 @@ async function createCatalogReply({ message, shopDomain }) {
 
   const collections = rankCollections(
     filterCollections(
-      (payload.collections?.edges || [])
-        .map((edge) => normalizeCollection(edge?.node, config.shopDomain))
-        .filter(Boolean),
+      dedupeByKey(
+        allCollectionEdges.map((edge) => normalizeCollection(edge?.node, config.shopDomain)).filter(Boolean),
+        (c) => c.url || c.handle || c.title,
+      ),
     ),
     request,
   );
-
-  const shouldRetryWithRelaxedQuery =
-    request.searchTerm &&
-    !products.length &&
-    !collections.length &&
-    /\s/.test(request.searchTerm);
-
-  if (shouldRetryWithRelaxedQuery) {
-    const relaxedTerm = buildRelaxedSearchTerm(request.searchTerm);
-
-    if (relaxedTerm && relaxedTerm !== request.searchTerm) {
-      const relaxedPayload = await storefrontQuery(config, {
-        productFirst: 8,
-        collectionFirst: 6,
-        productQuery: relaxedTerm,
-        collectionQuery: relaxedTerm,
-      });
-
-      const relaxedProducts = rankProducts(
-        filterProducts(
-          (relaxedPayload.products?.edges || [])
-            .map((edge) => normalizeProduct(edge?.node, config.shopDomain))
-            .filter(Boolean),
-          request,
-        ),
-        request,
-      );
-
-      const relaxedCollections = rankCollections(
-        filterCollections(
-          (relaxedPayload.collections?.edges || [])
-            .map((edge) => normalizeCollection(edge?.node, config.shopDomain))
-            .filter(Boolean),
-        ),
-        request,
-      );
-
-      if (relaxedProducts.length || relaxedCollections.length) {
-        return (
-          buildProductReply(relaxedProducts, request, shop) ||
-          buildCollectionReply(relaxedCollections, request, shop)
-        );
-      }
-    }
-  }
 
   if (request.wantsStoreOverview || (!request.searchTerm && request.wantsOverview)) {
     return buildOverviewReply(shop, products, collections, request);
