@@ -311,9 +311,9 @@ function getStorefrontConfig(preferredShopDomain) {
     .trim()
     .replace(/^https?:\/\//i, '')
     .replace(/\/+$/, '');
-  const accessToken = String(runtime.storefrontAccessToken || process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || '').trim() || 'public_access_token';
+  const accessToken = String(runtime.storefrontAccessToken || process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || '').trim();
 
-  if (!shopDomain) {
+  if (!shopDomain || !accessToken) {
     return null;
   }
 
@@ -609,8 +609,11 @@ async function storefrontQuery(config, variables) {
   }
 
   try {
+    const url = buildStorefrontUrl(config);
+    const hasToken = config.accessToken && config.accessToken.length > 0;
+
     const response = await axios.post(
-      buildStorefrontUrl(config),
+      url,
       {
         query: CATALOG_QUERY,
         variables,
@@ -619,7 +622,7 @@ async function storefrontQuery(config, variables) {
         timeout: SHOPIFY_STOREFRONT_TIMEOUT_MS,
         headers: {
           'Content-Type': 'application/json',
-          ...(config.accessToken
+          ...(hasToken
             ? { 'X-Shopify-Storefront-Access-Token': config.accessToken }
             : {}),
         },
@@ -627,7 +630,8 @@ async function storefrontQuery(config, variables) {
     );
 
     if (Array.isArray(response.data?.errors) && response.data.errors.length > 0) {
-      throw new Error(response.data.errors[0].message || 'Shopify Storefront query failed.');
+      const errorMsg = response.data.errors.map((e) => e.message).join('; ');
+      throw new Error(`Shopify API error: ${errorMsg}`);
     }
 
     const payload = response.data?.data || {
@@ -640,45 +644,13 @@ async function storefrontQuery(config, variables) {
 
     return payload;
   } catch (error) {
-    logger.warn('Shopify Storefront API failed, trying Admin API', {
+    logger.warn('Shopify Storefront API failed', {
       message: error.message,
+      statusCode: error.response?.status,
       shopDomain: config.shopDomain,
+      url: buildStorefrontUrl(config),
+      hasToken: Boolean(config.accessToken && config.accessToken.length > 0),
     });
-
-    // Fallback to Admin API
-    const runtime = buildRuntimeSettings(config.shopDomain);
-    const clientId = runtime.shopDomain ? process.env.SHOPIFY_API_KEY || '' : '';
-    const clientSecret = runtime.shopDomain ? process.env.SHOPIFY_API_SECRET || '' : '';
-
-    if (clientId && clientSecret) {
-      try {
-        const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-        const adminUrl = `https://${config.shopDomain}/admin/api/${config.apiVersion}/graphql.json`;
-
-        const adminResponse = await axios.post(
-          adminUrl,
-          { query: CATALOG_QUERY, variables },
-          {
-            headers: {
-              Authorization: `Basic ${auth}`,
-              'Content-Type': 'application/json',
-            },
-            timeout: SHOPIFY_STOREFRONT_TIMEOUT_MS,
-          },
-        );
-
-        const adminPayload = adminResponse.data?.data || {
-          shop: null,
-          products: { edges: [] },
-          collections: { edges: [] },
-        };
-
-        setCachedValue(cacheKey, adminPayload);
-        return adminPayload;
-      } catch (adminError) {
-        logger.warn('Admin API also failed', { message: adminError.message });
-      }
-    }
 
     throw error;
   }
@@ -1271,13 +1243,13 @@ function buildRelaxedSearchTerm(searchTerm) {
 async function createCatalogReply({ message, shopDomain }) {
   const config = getStorefrontConfig(shopDomain);
 
-  if (!config || !config.accessToken) {
+  if (!config) {
     return {
       success: true,
       source: 'catalog',
       intent: 'catalog_not_configured',
       reply:
-        'Store catalog is not connected yet. Set SHOPIFY_STORE_DOMAIN and SHOPIFY_STOREFRONT_ACCESS_TOKEN to answer product and collection questions.',
+        'Store catalog is not connected yet. Configure your Shopify store by setting both SHOPIFY_STORE_DOMAIN and SHOPIFY_STOREFRONT_ACCESS_TOKEN.',
       suggestions: DEFAULT_CATALOG_SUGGESTIONS,
     };
   }
