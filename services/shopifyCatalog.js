@@ -640,10 +640,46 @@ async function storefrontQuery(config, variables) {
 
     return payload;
   } catch (error) {
-    logger.warn('Shopify catalog lookup failed', {
+    logger.warn('Shopify Storefront API failed, trying Admin API', {
       message: error.message,
       shopDomain: config.shopDomain,
     });
+
+    // Fallback to Admin API
+    const runtime = buildRuntimeSettings(config.shopDomain);
+    const clientId = runtime.shopDomain ? process.env.SHOPIFY_API_KEY || '' : '';
+    const clientSecret = runtime.shopDomain ? process.env.SHOPIFY_API_SECRET || '' : '';
+
+    if (clientId && clientSecret) {
+      try {
+        const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+        const adminUrl = `https://${config.shopDomain}/admin/api/${config.apiVersion}/graphql.json`;
+
+        const adminResponse = await axios.post(
+          adminUrl,
+          { query: CATALOG_QUERY, variables },
+          {
+            headers: {
+              Authorization: `Basic ${auth}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: SHOPIFY_STOREFRONT_TIMEOUT_MS,
+          },
+        );
+
+        const adminPayload = adminResponse.data?.data || {
+          shop: null,
+          products: { edges: [] },
+          collections: { edges: [] },
+        };
+
+        setCachedValue(cacheKey, adminPayload);
+        return adminPayload;
+      } catch (adminError) {
+        logger.warn('Admin API also failed', { message: adminError.message });
+      }
+    }
+
     throw error;
   }
 }
