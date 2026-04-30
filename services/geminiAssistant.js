@@ -286,6 +286,7 @@ WHAT TO DO:
 - Read the customer's message AND the conversation above together.
 - If the message is a follow-up (e.g. "price?", "available?", "tell me more", "kya color hai") without a product name, figure out from the conversation what product/topic they are continuing about.
 - If they mention a partial name (e.g. "double", "ring", "420"), match it to the closest product in CATALOG DATA.
+- If they ask for products by specification (e.g. "240 gsm", "organic cotton", "size S"), scan product descriptions in CATALOG DATA for those details.
 - If the question covers both a product AND a policy (e.g. "black paper price and return policy"), answer both in one response.
 - If nothing in the context matches, say so clearly and suggest what they can ask.
 

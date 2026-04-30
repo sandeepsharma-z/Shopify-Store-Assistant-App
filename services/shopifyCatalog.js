@@ -1301,7 +1301,7 @@ async function createCatalogReply({ message, shopDomain }) {
 
   const payloads = await Promise.all(
     queryTargets.map((vars) =>
-      storefrontQuery(config, { productFirst: 8, collectionFirst: 6, ...vars }).catch(() => null),
+      storefrontQuery(config, { productFirst: 20, collectionFirst: 10, ...vars }).catch(() => null),
     ),
   );
 
