@@ -311,7 +311,7 @@ function getStorefrontConfig(preferredShopDomain) {
     .trim()
     .replace(/^https?:\/\//i, '')
     .replace(/\/+$/, '');
-  const accessToken = String(runtime.storefrontAccessToken || '').trim() || null;
+  const accessToken = String(runtime.storefrontAccessToken || process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || '').trim() || 'public_access_token';
 
   if (!shopDomain) {
     return null;
