@@ -1235,7 +1235,7 @@ function buildRelaxedSearchTerm(searchTerm) {
 async function createCatalogReply({ message, shopDomain }) {
   const config = getStorefrontConfig(shopDomain);
 
-  if (!config) {
+  if (!config || !config.accessToken) {
     return {
       success: true,
       source: 'catalog',
