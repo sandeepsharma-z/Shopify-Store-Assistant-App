@@ -11,16 +11,29 @@
   --shiprocket-accent: #ec845a;
   --shiprocket-accent-soft: #fff0e7;
   --shiprocket-shadow: 0 34px 70px rgba(18, 25, 33, 0.14);
-  position: fixed;
-  right: 24px;
-  bottom: 34px;
-  z-index: 9999;
+  position: fixed !important;
+  top: auto !important;
+  right: 24px !important;
+  bottom: 34px !important;
+  left: auto !important;
+  width: fit-content;
+  max-width: calc(100vw - 48px);
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  direction: ltr;
+  isolation: isolate;
+  z-index: 2147483000 !important;
   font-family: "Segoe UI", Arial, sans-serif;
   color: var(--shiprocket-text);
 }
 
 .shiprocket-order-tracker-root * {
   box-sizing: border-box;
+}
+
+.shiprocket-order-tracker-root {
+  inset: auto 24px 34px auto;
 }
 
 .shiprocket-order-tracker-root button,
@@ -1043,9 +1056,11 @@
 
 @media (max-width: 640px) {
   .shiprocket-order-tracker-root {
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
+    left: 16px !important;
+    right: 16px !important;
+    bottom: 16px !important;
+    max-width: none;
+    width: auto;
   }
 
   .shiprocket-chat-launcher {
@@ -1183,9 +1198,9 @@
 
 @media (max-width: 420px) {
   .shiprocket-order-tracker-root {
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
   }
 
   .shiprocket-chat-launcher {
