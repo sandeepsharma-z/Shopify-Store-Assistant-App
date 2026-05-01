@@ -252,9 +252,9 @@ function buildPrompt({
         .join('\n\n')
     : null;
 
+  // Include ALL conversation history, not just recent turns
   const recentContext = Array.isArray(historyTurns) && historyTurns.length
     ? historyTurns
-        .slice(-6)
         .map((t) => `${t.role === 'assistant' ? 'Assistant' : 'Customer'}: ${t.text}`)
         .join('\n')
     : null;
@@ -290,14 +290,24 @@ ${message}
 CONVERSATION SO FAR:
 ${recentContext || 'This is the first message.'}
 
+HOW TO USE CONVERSATION HISTORY:
+- Read the FULL conversation above carefully. The customer may be continuing a topic from earlier.
+- If they say "price?" or "available?" or "tell me more" — look back to see what product/topic they were discussing.
+- Use context from previous messages to answer more accurately.
+- Remember what the customer asked before and build on it.
+- If they say "that one" or "this product" — refer to the last product discussed.
+
 WHAT TO DO - PRIORITY ORDER:
-1. If the message is unclear/garbled: Try to understand what they're asking for. Ask for clarification if needed (e.g., "Are you looking for [product type]?")
-2. If it's a follow-up (e.g. "price?", "available?", "tell me more", "kya color hai") without a product name: Figure out from the conversation what product/topic they're continuing about.
+1. FIRST: Read the full conversation history to understand context and what the customer was last discussing.
+2. If the current message is a follow-up (e.g. "price?", "available?", "tell me more", "kya color hai"): Look at history to identify which product/topic they're continuing about. Answer specifically about THAT product.
 3. If they mention a partial/misspelled name (e.g. "duble", "rng", "420"): Match to the closest product in CATALOG DATA.
 4. If they ask by specification (e.g. "240 gsm", "organic cotton", "size S"): Scan product descriptions in CATALOG DATA for those details.
 5. If asking both product AND policy (e.g. "price and return policy"): Answer both in one response.
-6. If nothing matches: Say so clearly and suggest related things they CAN ask about (e.g., "I didn't find that, but we have [related products]. Want to know more?")
-7. For off-topic: Politely redirect to what you CAN help with.
+6. If unclear/garbled: Try to understand intent. Use conversation history to guess what they want. Ask clarifying question only if absolutely necessary.
+7. If nothing matches: Say so clearly and suggest related things they CAN ask about (e.g., "I didn't find that, but we have [related products]. Want to know more?")
+8. For off-topic: Politely redirect to what you CAN help with.
+
+IMPORTANT: Be specific and contextual. Reference previous products by name if continuing a discussion.
 
 DETECTED INTENT: ${primaryIntent || 'fallback'}
 
