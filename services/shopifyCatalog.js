@@ -1382,6 +1382,21 @@ async function createCatalogReply({ message, shopDomain }) {
     return buildCollectionReply(collections, request, shop);
   }
 
+  // If a collection has a strong name match to the search term, prioritize showing it
+  if (collections.length && request.searchTerm) {
+    const searchTokens = buildSearchTokens(request);
+    const strongCollectionMatch = collections.find((collection) => {
+      const titleScore = scoreTextMatch(collection.title, searchTokens);
+      const handleScore = scoreTextMatch(collection.handle, searchTokens);
+      // If collection title or handle has strong match (at least 50% overlap), prefer collection
+      return titleScore >= 2 || handleScore >= 2;
+    });
+
+    if (strongCollectionMatch) {
+      return buildCollectionReply([strongCollectionMatch], request, shop);
+    }
+  }
+
   if (request.wantsRecommendations && products.length) {
     return buildProductReply(products, request, shop);
   }
