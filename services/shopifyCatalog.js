@@ -311,15 +311,18 @@ function getStorefrontConfig(preferredShopDomain) {
     .trim()
     .replace(/^https?:\/\//i, '')
     .replace(/\/+$/, '');
+
+  // Use Storefront token if available, otherwise allow unauthenticated access
+  // (public product data is accessible without a token)
   const accessToken = String(runtime.storefrontAccessToken || process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || '').trim();
 
-  if (!shopDomain || !accessToken) {
+  if (!shopDomain) {
     return null;
   }
 
   return {
     shopDomain,
-    accessToken,
+    accessToken: accessToken || null,
     apiVersion: SHOPIFY_STOREFRONT_API_VERSION,
   };
 }
@@ -612,6 +615,15 @@ async function storefrontQuery(config, variables) {
     const url = buildStorefrontUrl(config);
     const hasToken = config.accessToken && config.accessToken.length > 0;
 
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add token header if available; otherwise allow unauthenticated access
+    if (hasToken) {
+      headers['X-Shopify-Storefront-Access-Token'] = config.accessToken;
+    }
+
     const response = await axios.post(
       url,
       {
@@ -620,12 +632,7 @@ async function storefrontQuery(config, variables) {
       },
       {
         timeout: SHOPIFY_STOREFRONT_TIMEOUT_MS,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(hasToken
-            ? { 'X-Shopify-Storefront-Access-Token': config.accessToken }
-            : {}),
-        },
+        headers,
       },
     );
 
