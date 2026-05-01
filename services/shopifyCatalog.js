@@ -129,6 +129,12 @@ const PRODUCT_HINTS = [
   'show',
   'find',
   'search',
+  'get',
+  'give',
+  'send',
+  'purchase',
+  'order',
+  'sell',
   't-shirt',
   'tshirt',
   't shirt',
@@ -147,6 +153,10 @@ const PRODUCT_HINTS = [
   'tray',
   'frames',
   'frame',
+  'offer',
+  'deal',
+  'sale',
+  'discount',
 ];
 
 const COLLECTION_HINTS = ['collection', 'collections', 'category', 'categories', 'range', 'ranges'];
@@ -299,10 +309,23 @@ const QUESTION_HINTS = [
   'best for',
   'about',
   'details',
+  'detail',
   'describe',
   'description',
   'benefits',
+  'benefit',
   'features',
+  'feature',
+  'info',
+  'information',
+  'tell me',
+  'know',
+  'understand',
+  'specs',
+  'specification',
+  'details about',
+  'more about',
+  'tell about',
 ];
 
 function getStorefrontConfig(preferredShopDomain) {
