@@ -499,6 +499,16 @@ async function createGeminiReply({ message, shopDomain, primaryIntent, history }
       replyLanguage,
     });
 
+    // Only include catalog if there are actual items to display
+    const hasCatalogItems = catalogReply?.catalog &&
+      (
+        (Array.isArray(catalogReply.catalog.items) && catalogReply.catalog.items.length > 0) ||
+        (catalogReply.catalog.type === 'overview' && (
+          (Array.isArray(catalogReply.catalog.products) && catalogReply.catalog.products.length > 0) ||
+          (Array.isArray(catalogReply.catalog.collections) && catalogReply.catalog.collections.length > 0)
+        ))
+      );
+
     return {
       success: true,
       source: 'gemini',
@@ -511,10 +521,7 @@ async function createGeminiReply({ message, shopDomain, primaryIntent, history }
         catalogReply?.suggestions ||
         supportReply?.suggestions ||
         DEFAULT_CATALOG_SUGGESTIONS,
-      catalog:
-        catalogReply && catalogReply.intent !== 'catalog_not_configured'
-          ? catalogReply.catalog
-          : null,
+      ...(hasCatalogItems ? { catalog: catalogReply.catalog } : {}),
     };
   } catch (error) {
     logger.warn('Gemini request failed', {
