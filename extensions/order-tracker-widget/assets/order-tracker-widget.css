@@ -100,6 +100,7 @@
 }
 
 .shiprocket-chat-launcher-card {
+  display: none !important;
   min-width: 220px;
   padding: 14px 18px;
   border-radius: 22px;
