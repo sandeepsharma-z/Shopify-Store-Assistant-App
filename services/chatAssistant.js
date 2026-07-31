@@ -159,7 +159,9 @@ function buildResponse({
 function extractStandaloneReference(message) {
   const trimmed = normalizeMessage(message);
 
-  if (/^[A-Za-z0-9-]{6,40}$/.test(trimmed) && hasDigits(trimmed)) {
+  // Shopify order numbers are commonly short (e.g. "8906") and shown to
+  // customers with a leading "#" (e.g. "#8906"), unlike longer AWB numbers.
+  if (/^#?[A-Za-z0-9-]{3,40}$/.test(trimmed) && hasDigits(trimmed)) {
     return trimmed;
   }
 
@@ -183,7 +185,7 @@ function extractLabeledAwb(message) {
 }
 
 function extractGenericTrackingToken(message) {
-  const tokens = normalizeMessage(message).match(/[A-Za-z0-9-]{6,40}/g) || [];
+  const tokens = normalizeMessage(message).match(/[A-Za-z0-9-]{3,40}/g) || [];
   return tokens.find((token) => hasDigits(token)) || null;
 }
 

@@ -164,6 +164,8 @@ function extractAwb(payload) {
     root.awb_number,
     root?.shipments?.[0]?.awb,
     root?.shipments?.[0]?.awb_code,
+    root?.shipment_track?.[0]?.awb_code,
+    root?.shipment_track?.[0]?.awb,
     payload?.awb_code,
     payload?.awb,
   ]);
@@ -413,7 +415,16 @@ function extractTrackingSummary(payload, lookup = {}) {
   );
   const trackUrl = extractTrackingUrl(payload);
   const recentUpdates = buildRecentUpdates(activities);
-  const hasEvidence = Boolean(rawStatus || rawLocation || rawExpectedDelivery || latestActivity);
+  // Shiprocket returns a placeholder shipment_track entry (all empty fields) plus
+  // an `error` message when an AWB/order id has no shipment on record, instead of
+  // a 404. Treat that provider error as authoritative so we don't report a fake
+  // "being processed" status for an invalid reference.
+  const providerError = firstNonEmptyString([root.error, payload?.error]);
+  const hasMeaningfulActivity = Boolean(
+    latestActivity && (latestActivity.status || latestActivity.location || latestActivity.date),
+  );
+  const hasEvidence =
+    !providerError && Boolean(rawStatus || rawLocation || rawExpectedDelivery || hasMeaningfulActivity);
 
   return {
     hasEvidence,
@@ -622,9 +633,44 @@ async function fetchOrderDetails(orderId, shopDomain) {
   return response.data;
 }
 
+function normalizeChannelOrderId(orderId) {
+  return String(orderId || '').trim().replace(/^#/, '');
+}
+
+function unwrapOrderTrackResponse(payload, orderId) {
+  const entry = Array.isArray(payload) ? payload[0] : payload;
+
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+
+  if (entry.tracking_data) {
+    return entry;
+  }
+
+  // Some Shiprocket responses key the entry by the queried order id,
+  // e.g. { "8906": { tracking_data: {...} } }, instead of returning it directly.
+  const keyed = entry[orderId] || Object.values(entry)[0];
+  return keyed && typeof keyed === 'object' ? keyed : entry;
+}
+
+async function fetchOrderTrackByChannelId(orderId, shopDomain) {
+  const normalizedOrderId = normalizeChannelOrderId(orderId);
+  const response = await requestWithAuth({
+    method: 'GET',
+    url: '/courier/track',
+    params: { order_id: normalizedOrderId },
+  }, { shopDomain });
+
+  return unwrapOrderTrackResponse(response.data, normalizedOrderId);
+}
+
 async function fetchByOrderId(orderId, shopDomain) {
   try {
-    const orderPayload = await fetchOrderDetails(orderId, shopDomain);
+    // Shiprocket's /orders/show/{id} endpoint only accepts its own internal
+    // numeric order id, which customers never see. /courier/track?order_id=
+    // is the endpoint that actually accepts the customer-facing order number.
+    const orderPayload = await fetchOrderTrackByChannelId(orderId, shopDomain);
     const awb = extractAwb(orderPayload);
 
     if (awb) {
